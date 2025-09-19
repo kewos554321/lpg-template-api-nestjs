@@ -1,0 +1,1 @@
+// Notification query DTO template

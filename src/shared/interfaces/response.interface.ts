@@ -1,0 +1,1 @@
+// Response interface template

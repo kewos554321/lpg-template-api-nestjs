@@ -1,0 +1,1 @@
+// Product category entity template

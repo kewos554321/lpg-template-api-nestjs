@@ -1,0 +1,1 @@
+// Validation configuration template

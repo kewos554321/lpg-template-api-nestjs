@@ -1,0 +1,1 @@
+// Database constants template
