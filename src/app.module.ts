@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import databaseConfig from './config/database.config';
 import { DemoModule } from './modules/demo/demo.module';
+import { join } from 'path';
 
 @Module({
   imports: [
@@ -23,6 +24,9 @@ import { DemoModule } from './modules/demo/demo.module';
           password: c.password,
           database: c.database,
           autoLoadEntities: true,
+          entities: [
+            join(__dirname, '..', 'node_modules/@artifact/lpg-api-service/dist/**/*.entity.js'),
+          ],
           synchronize: false,
         };
       },
