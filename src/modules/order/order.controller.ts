@@ -6,7 +6,7 @@ import type {
   UpdateOrderPaymentRequest,
 } from './dto/order.dto';
 
-@Controller('orders')
+@Controller('order')
 export class OrderController {
   constructor(private readonly service: OrderService) {}
 
