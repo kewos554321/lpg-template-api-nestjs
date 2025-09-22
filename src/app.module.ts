@@ -7,6 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import databaseConfig from './config/database.config';
 import { DemoModule } from './modules/demo/demo.module';
 import { join } from 'path';
+import { OrderModule } from './modules/order/order.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { join } from 'path';
       },
     }),
     HealthModule,
+    OrderModule,
     DemoModule],
   controllers: [AppController],
   providers: [AppService],

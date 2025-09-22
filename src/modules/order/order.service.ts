@@ -8,11 +8,11 @@ import {
   UpdateOrderPaymentRequest,
   UpdateOrderPaymentResponse,
 } from './dto/order.dto';
-import { OrdersModel } from './orders.model';
+import { OrderModel } from './order.model';
 
 @Injectable()
-export class OrdersService {
-  constructor(private readonly model: OrdersModel) {}
+export class OrderService {
+  constructor(private readonly model: OrderModel) {}
 
   async getOrderInfo(order_id: string): Promise<OrderResponse> {
     const orderInfo = await this.model.getOrderInfo(order_id);

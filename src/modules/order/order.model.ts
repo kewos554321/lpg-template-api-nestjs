@@ -28,7 +28,7 @@ import {
 } from './dto/order.dto';
 
 @Injectable()
-export class OrdersModel {
+export class OrderModel {
   constructor(
     private readonly dataSource: DataSource,
     @InjectRepository(OrderList) private readonly orderRepo: Repository<any>,

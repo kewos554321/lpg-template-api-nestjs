@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { OrdersController } from './orders.controller';
-import { OrdersService } from './orders.service';
-import { OrdersModel } from './orders.model';
+import { OrderController } from './order.controller';
+import { OrderService } from './order.service';
+import { OrderModel } from './order.model';
 import {
   OrderList,
   OrderGas,
@@ -35,7 +35,7 @@ import {
       Supplier,
     ]),
   ],
-  controllers: [OrdersController],
-  providers: [OrdersService, OrdersModel],
+  controllers: [OrderController],
+  providers: [OrderService, OrderModel],
 })
-export class OrdersModule {}
+export class OrderModule {}

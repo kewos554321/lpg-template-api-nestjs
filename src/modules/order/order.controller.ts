@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
-import { OrdersService } from './orders.service';
+import { OrderService } from './order.service';
 import type {
   CreateOrderRequest,
   GetOrderListRequest,
@@ -7,8 +7,8 @@ import type {
 } from './dto/order.dto';
 
 @Controller('orders')
-export class OrdersController {
-  constructor(private readonly service: OrdersService) {}
+export class OrderController {
+  constructor(private readonly service: OrderService) {}
 
   @Get(':order_id')
   getOrderInfo(@Param('order_id') order_id: string) {
