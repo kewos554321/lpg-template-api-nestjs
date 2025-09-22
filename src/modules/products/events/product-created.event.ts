@@ -1,1 +1,0 @@
-// Product created event template

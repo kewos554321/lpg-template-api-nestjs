@@ -1,1 +1,0 @@
-// Product updated event template

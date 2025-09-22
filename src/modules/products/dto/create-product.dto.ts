@@ -1,1 +1,0 @@
-// Create product DTO template

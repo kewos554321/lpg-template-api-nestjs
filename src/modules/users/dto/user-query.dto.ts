@@ -1,1 +1,0 @@
-// User query DTO template

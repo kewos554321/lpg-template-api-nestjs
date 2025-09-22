@@ -1,1 +1,0 @@
-// JWT strategy template

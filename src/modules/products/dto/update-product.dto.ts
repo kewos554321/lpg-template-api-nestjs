@@ -1,1 +1,0 @@
-// Update product DTO template

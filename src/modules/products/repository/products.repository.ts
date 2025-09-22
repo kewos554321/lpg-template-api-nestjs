@@ -1,1 +1,0 @@
-// Products repository template

@@ -1,1 +1,0 @@
-// Product categories repository template

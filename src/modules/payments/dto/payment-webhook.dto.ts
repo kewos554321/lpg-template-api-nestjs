@@ -1,1 +1,0 @@
-// Payment webhook DTO template

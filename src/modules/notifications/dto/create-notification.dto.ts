@@ -1,1 +1,0 @@
-// Create notification DTO template

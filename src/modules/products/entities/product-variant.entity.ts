@@ -1,1 +1,0 @@
-// Product variant entity template

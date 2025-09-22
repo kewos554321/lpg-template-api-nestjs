@@ -1,1 +1,0 @@
-// User updated event template

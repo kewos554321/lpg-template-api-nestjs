@@ -1,1 +1,0 @@
-// Product query DTO template
