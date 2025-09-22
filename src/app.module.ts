@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import databaseConfig from './config/database.config';
+import { DemoModule } from './modules/demo/demo.module';
 
 @Module({
   imports: [
@@ -26,8 +27,8 @@ import databaseConfig from './config/database.config';
         };
       },
     }),
-    
-    HealthModule],
+    HealthModule,
+    DemoModule],
   controllers: [AppController],
   providers: [AppService],
 })
