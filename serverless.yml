@@ -1,0 +1,37 @@
+service: sls-artifact-template-nestjs
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ap-northeast-1
+  architecture: arm64
+  environment:
+    NODE_OPTIONS: --enable-source-maps
+
+plugins:
+  - serverless-esbuild
+  - serverless-offline
+
+package:
+  individually: true
+
+functions:
+  api:
+    handler: dist/lambda.handler
+    events:
+      - httpApi: '*'
+
+custom:
+  esbuild:
+    bundle: true
+    minify: true
+    sourcemap: true
+    target: node20
+    platform: node
+    outdir: dist
+    external:
+      - '@nestjs/microservices'
+      - '@nestjs/websockets'
+      - 'class-transformer'
+      - 'class-validator'

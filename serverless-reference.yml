@@ -1,0 +1,60 @@
+service: serverless-artifact-template
+
+custom:
+  # Our stage is based on what is passed in when running serverless
+  # commands. Or falls back to what we have set in the provider section.
+  stage: ${opt:stage, 'offline'}
+  region: ${opt:region, 'ap-northeast-1'}
+  bundle:
+    linting: false
+    excludeFiles: "**/*.test.ts"
+    # sourcemaps: true
+    # tsConfig: 'tsconfig.json'
+    # packager: yarn
+    # disableForkTsChecker: true
+    ignorePackages:
+      - pg-native
+    aliases:
+      - 'typeorm': './node_modules/typeorm/browser' # see https://github.com/typeorm/typeorm/issues/8714
+    # forceExclude:
+    #   - aws-sdk
+  serverless-offline:
+    httpPort: 4011
+    noPrependStageInUrl: true
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  region: ap-northeast-1
+  memorySize: 512
+  timeout: 10
+  logRetentionInDays: 90
+  logs:
+    httpApi: true
+  httpApi:
+    # metrics: true # Enable if you need
+    cors: true
+
+functions:
+  app:
+    handler: src/handler.handler
+    # reservedConcurrency: 100
+    events:
+      - http:
+          path: /
+          method: get
+          cors: true
+      - http:
+          path: /{proxy+}
+          method: any
+          cors: true
+
+package:
+  individually: true
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-bundle
+  - serverless-offline
+  # - serverless-ignore
+

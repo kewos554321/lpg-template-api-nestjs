@@ -1,11 +1,7 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { createApp } from './bootstrap';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
-  app.setGlobalPrefix('api', { exclude: ['/', 'health'] });
-
+  const app = await createApp();
   await app.listen(3000);
 }
 bootstrap();
