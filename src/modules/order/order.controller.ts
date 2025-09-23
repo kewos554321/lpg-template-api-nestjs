@@ -15,6 +15,11 @@ export class OrderController {
     return this.service.getOrderInfo(order_id);
   }
 
+  @Get('/get-order-list-by-id/:order_id')
+  getOrderListById(@Param('order_id') order_id: string) {
+    return this.service.getOrderListById(order_id);
+  }
+
   @Post('list')
   getOrderList(@Body() body: GetOrderListRequest) {
     return this.service.getOrderList(body);

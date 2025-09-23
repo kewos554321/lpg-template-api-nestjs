@@ -17,6 +17,7 @@ import {
   CisWallet,
   Supplier,
 } from '@artifact/lpg-api-service';
+import { OrderRepository } from './order.repository';
 
 @Module({
   imports: [
@@ -36,6 +37,6 @@ import {
     ]),
   ],
   controllers: [OrderController],
-  providers: [OrderService, OrderModel],
+  providers: [OrderService, OrderModel, OrderRepository],
 })
 export class OrderModule {}

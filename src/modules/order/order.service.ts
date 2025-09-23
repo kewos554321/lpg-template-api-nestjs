@@ -9,10 +9,12 @@ import {
   UpdateOrderPaymentResponse,
 } from './dto/order.dto';
 import { OrderModel } from './order.model';
+import { OrderRepository } from './order.repository';
+import { OrderList } from '@artifact/lpg-api-service/dist/database/entities/order_list';
 
 @Injectable()
 export class OrderService {
-  constructor(private readonly model: OrderModel) {}
+  constructor(private readonly model: OrderModel, private readonly repository: OrderRepository) {}
 
   async getOrderInfo(order_id: string): Promise<OrderResponse> {
     const orderInfo = await this.model.getOrderInfo(order_id);
@@ -82,6 +84,10 @@ export class OrderService {
 
   async updateOrderPayment(request: UpdateOrderPaymentRequest): Promise<UpdateOrderPaymentResponse> {
     return this.model.updateOrderPayment(request);
+  }
+
+  async getOrderListById(order_id: string): Promise<OrderList[]> {
+    return this.repository.getOrderListById(order_id);
   }
 }
 

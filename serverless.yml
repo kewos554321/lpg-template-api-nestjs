@@ -8,6 +8,12 @@ provider:
   architecture: arm64
   environment:
     NODE_OPTIONS: --enable-source-maps
+    DATABASE_HOST: 143.198.193.124
+    DATABASE_PORT: 5432
+    DATABASE_USERNAME: "jay"
+    DATABASE_PASSWORD: "ynxtXe2x7w2HZX6mpJyR"
+    DATABASE_NAME: "jay_dev"
+
 
 plugins:
   - serverless-esbuild

@@ -10,7 +10,12 @@
       "region": "ap-northeast-1",
       "architecture": "arm64",
       "environment": {
-        "NODE_OPTIONS": "--enable-source-maps"
+        "NODE_OPTIONS": "--enable-source-maps",
+        "DATABASE_HOST": "143.198.193.124",
+        "DATABASE_PORT": "5432",
+        "DATABASE_USERNAME": "jay",
+        "DATABASE_PASSWORD": "ynxtXe2x7w2HZX6mpJyR",
+        "DATABASE_NAME": "jay_dev"
       },
       "stage": "dev",
       "versionFunctions": true,
@@ -178,7 +183,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/sls-artifact-template-nestjs/prod/1758551193678-2025-09-22T14:26:33.678Z/api.zip"
+                "S3Key": "serverless/sls-artifact-template-nestjs/prod/1758622100881-2025-09-23T10:08:20.881Z/api.zip"
               },
               "Handler": "dist/lambda.handler",
               "Runtime": "nodejs20.x",
@@ -190,7 +195,12 @@
               ],
               "Environment": {
                 "Variables": {
-                  "NODE_OPTIONS": "--enable-source-maps"
+                  "NODE_OPTIONS": "--enable-source-maps",
+                  "DATABASE_HOST": "143.198.193.124",
+                  "DATABASE_PORT": "5432",
+                  "DATABASE_USERNAME": "jay",
+                  "DATABASE_PASSWORD": "ynxtXe2x7w2HZX6mpJyR",
+                  "DATABASE_NAME": "jay_dev"
                 }
               },
               "Role": {
@@ -204,14 +214,14 @@
               "ApiLogGroup"
             ]
           },
-          "ApiLambdaVersion6zRdNJmk3JLjruZZOYvIgS1pVxuhtpwsKn8SoR1HU": {
+          "ApiLambdaVersionVYdojf5wIgPE7uxER67XVcRZ12n5TJC9k2KRgK6ZP8": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "ApiLambdaFunction"
               },
-              "CodeSha256": "h00Xr/MEjzYh+jNAml8bgKtgmsp0oCNw/N5PP6zEFl8="
+              "CodeSha256": "tFYSwbUWdMe0axaKiYUh5rLdaG8peCsiHumo8IeUoYY="
             }
           },
           "HttpApi": {
@@ -319,7 +329,7 @@
           "ApiLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "ApiLambdaVersion6zRdNJmk3JLjruZZOYvIgS1pVxuhtpwsKn8SoR1HU"
+              "Ref": "ApiLambdaVersionVYdojf5wIgPE7uxER67XVcRZ12n5TJC9k2KRgK6ZP8"
             },
             "Export": {
               "Name": "sls-sls-artifact-template-nestjs-prod-ApiLambdaFunctionQualifiedArn"
@@ -483,7 +493,7 @@
         "timeout": 6,
         "runtime": "nodejs20.x",
         "vpc": {},
-        "versionLogicalId": "ApiLambdaVersion6zRdNJmk3JLjruZZOYvIgS1pVxuhtpwsKn8SoR1HU"
+        "versionLogicalId": "ApiLambdaVersionVYdojf5wIgPE7uxER67XVcRZ12n5TJC9k2KRgK6ZP8"
       }
     },
     "configValidationMode": "warn",
@@ -513,7 +523,7 @@
   },
   "package": {
     "individually": true,
-    "artifactDirectoryName": "serverless/sls-artifact-template-nestjs/prod/1758551193678-2025-09-22T14:26:33.678Z",
+    "artifactDirectoryName": "serverless/sls-artifact-template-nestjs/prod/1758622100881-2025-09-23T10:08:20.881Z",
     "artifact": ""
   }
 }
