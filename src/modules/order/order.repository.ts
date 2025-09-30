@@ -102,34 +102,8 @@ export class OrderRepository {
       .createQueryBuilder('order_list')
       .leftJoinAndSelect('order_list.customerInSupplier', 'customerInSupplier')
       .leftJoinAndSelect('customerInSupplier.customer_info', 'customer_info')
-      .leftJoin(DeliveryAddress, 'delivery_address', 'delivery_address.address_id = order_list.address_id')
-      .addSelect([
-        'delivery_address.address_id as delivery_address_address_id',
-        'delivery_address.fullAddress as delivery_address_full_address',
-        'delivery_address.city as delivery_address_city',
-        'delivery_address.site_id as delivery_address_site_id',
-        'delivery_address.village as delivery_address_village',
-        'delivery_address.neighborhood as delivery_address_neighborhood',
-        'delivery_address.road as delivery_address_road',
-        'delivery_address.section as delivery_address_section',
-        'delivery_address.alley as delivery_address_alley',
-        'delivery_address.lane as delivery_address_lane',
-        'delivery_address.address_number as delivery_address_address_number',
-        'delivery_address.floor as delivery_address_floor',
-        'delivery_address.room as delivery_address_room',
-        'delivery_address.extra as delivery_address_extra',
-        'delivery_address.address_code as delivery_address_address_code',
-      ])
-      .leftJoin('Courier', 'courier', 'courier.courier_id = order_list.courier_id')
-      .addSelect([
-        'courier.courier_id as courier_courier_id',
-        'courier.courier_name as courier_courier_name',
-        'courier.account as courier_account',
-        'courier.login_time_stamp as courier_login_time_stamp',
-        'courier.supplier_id as courier_supplier_id',
-        'courier.deleted as courier_deleted',
-        'courier.create_time_stamp as courier_create_time_stamp',
-      ]);
+      .leftJoinAndSelect('order_list.address_info', 'address_info')
+      .leftJoinAndSelect('order_list.courier_info', 'courier_info');
 
     // 條件篩選
     if (request.order_status) {
@@ -161,10 +135,9 @@ export class OrderRepository {
       qb.orderBy('order_list.delivery_time_stamp', 'DESC');
     }
 
-    const result = await qb.getRawAndEntities();
+    const orders = await qb.getMany();
     
-    return result.entities.map((order: any, idx) => {
-      const raw: any = result.raw[idx];
+    return orders.map((order: any) => {
       const totalPrice = (order.discount || 0) + (order.gas_discount || 0);
       
       return {
@@ -193,27 +166,27 @@ export class OrderRepository {
         customerInSupplier_tax_id_number: order.customerInSupplier?.tax_id_number || null,
         customerInSupplier_company_name: order.customerInSupplier?.company_name || null,
         address_id: order.address_id || 0,
-        address: raw?.delivery_address_full_address || null,
-        address_city: raw?.delivery_address_city || null,
-        address_site_id: raw?.delivery_address_site_id || null,
-        address_village: raw?.delivery_address_village || null,
-        address_neighborhood: raw?.delivery_address_neighborhood || null,
-        address_road: raw?.delivery_address_road || null,
-        address_section: raw?.delivery_address_section || null,
-        address_alley: raw?.delivery_address_alley || null,
-        address_lane: raw?.delivery_address_lane || null,
-        address_address_number: raw?.delivery_address_address_number || null,
-        address_floor: raw?.delivery_address_floor || null,
-        address_room: raw?.delivery_address_room || null,
-        address_extra: raw?.delivery_address_extra || null,
-        address_address_code: raw?.delivery_address_address_code || null,
-        courier_courier_id: raw?.courier_courier_id || null,
-        courier_courier_name: raw?.courier_courier_name || null,
-        courier_account: raw?.courier_account || null,
-        courier_login_time_stamp: raw?.courier_login_time_stamp || null,
-        courier_supplier_id: raw?.courier_supplier_id || null,
-        courier_deleted: raw?.courier_deleted || null,
-        courier_create_time_stamp: raw?.courier_create_time_stamp || null,
+        address: order.address_info?.fullAddress || null,
+        address_city: order.address_info?.city || null,
+        address_site_id: order.address_info?.site_id || null,
+        address_village: order.address_info?.village || null,
+        address_neighborhood: order.address_info?.neighborhood || null,
+        address_road: order.address_info?.road || null,
+        address_section: order.address_info?.section || null,
+        address_alley: order.address_info?.alley || null,
+        address_lane: order.address_info?.lane || null,
+        address_address_number: order.address_info?.address_number || null,
+        address_floor: order.address_info?.floor || null,
+        address_room: order.address_info?.room || null,
+        address_extra: order.address_info?.extra || null,
+        address_address_code: order.address_info?.address_code || null,
+        courier_courier_id: order.courier_info?.courier_id || null,
+        courier_courier_name: order.courier_info?.courier_name || null,
+        courier_account: order.courier_info?.account || null,
+        courier_login_time_stamp: order.courier_info?.login_time_stamp || null,
+        courier_supplier_id: order.courier_info?.supplier_id || null,
+        courier_deleted: order.courier_info?.deleted || null,
+        courier_create_time_stamp: order.courier_info?.create_time_stamp || null,
         total_price: totalPrice,
         arrears: order.customerInSupplier?.init_arrears || null,
       } as OrderListItem;
