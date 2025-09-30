@@ -18,6 +18,7 @@ import {
   WorkPayWayEnum,
   PaymentFlowTypeEnum,
   OrderStatusEnum,
+  DeliveryAddress,
 } from '@artifact/lpg-api-service';
 
 
@@ -101,7 +102,7 @@ export class OrderRepository {
       .createQueryBuilder('order_list')
       .leftJoinAndSelect('order_list.customerInSupplier', 'customerInSupplier')
       .leftJoinAndSelect('customerInSupplier.customer_info', 'customer_info')
-      .leftJoin('DeliveryAddress', 'delivery_address', 'delivery_address.address_id = order_list.address_id')
+      .leftJoin(DeliveryAddress, 'delivery_address', 'delivery_address.address_id = order_list.address_id')
       .addSelect([
         'delivery_address.address_id as delivery_address_address_id',
         'delivery_address.fullAddress as delivery_address_full_address',

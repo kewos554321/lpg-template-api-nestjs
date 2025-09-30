@@ -16,6 +16,7 @@ import {
   Check,
   CisWallet,
   Supplier,
+  DeliveryAddress,
 } from '@artifact/lpg-api-service';
 import { OrderRepository } from './order.repository';
 import { Order2Controller } from './order.controller';
@@ -35,6 +36,7 @@ import { Order2Controller } from './order.controller';
       Check,
       CisWallet,
       Supplier,
+      DeliveryAddress,
     ]),
   ],
   controllers: [OrderController, Order2Controller],
