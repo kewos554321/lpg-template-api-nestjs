@@ -6,6 +6,13 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 export async function createApp(): Promise<INestApplication> {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api', { exclude: ['/', 'health'] });
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+    allowedHeaders: ['Content-Type','Authorization','Accept','Origin','X-Requested-With'],
+    exposedHeaders: ['Content-Length','Date'],
+  });
 
   // Swagger (OpenAPI) configuration
   const swaggerConfig = new DocumentBuilder()
@@ -16,7 +23,20 @@ export async function createApp(): Promise<INestApplication> {
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document, {
-    swaggerOptions: { persistAuthorization: true },
+    customSiteTitle: 'LPG Template API Docs',
+    customCssUrl: 'https://unpkg.com/swagger-ui-dist@5/swagger-ui.css',
+    customfavIcon: 'https://unpkg.com/swagger-ui-dist@5/favicon-32x32.png',
+    customJs: [
+      'https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js',
+      'https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js',
+    ],
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'none',
+      displayRequestDuration: true,
+      tryItOutEnabled: true,
+      explorer: true,
+    },
   });
   return app;
 }
