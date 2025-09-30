@@ -46,5 +46,11 @@ export class Order2Controller {
     return this.service.getOrderList(body);
   }
 
+  @Post()
+  createOrder(@Body() body: CreateOrderRequest) {
+    const supplier_id = 'GS_1';
+    return this.service.createOrder(body, supplier_id);
+  }
+
 }
 

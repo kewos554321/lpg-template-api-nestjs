@@ -1,13 +1,32 @@
 import { OrderList } from "@artifact/lpg-api-service/dist/database/entities/order_list";
-import { Repository } from "typeorm";
+import { Repository, DataSource } from "typeorm";
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { OrderInfo, GetOrderListRequest, OrderListItem } from "./dto/order.dto";
+import { OrderInfo, GetOrderListRequest, OrderListItem, UpdateOrderPaymentRequest, CreateOrderRequest, CreateOrderResponse, UpdateOrderPaymentResponse } from "./dto/order.dto";
+import {
+  OrderGas,
+  OrderCommodity,
+  OrderCylinder,
+  CisCylinderMortgage,
+  OrderUsageFee,
+  OrderRefund,
+  OrderPayup,
+  OrderPayupWork,
+  Check,
+  CisWallet,
+  Supplier,
+  WorkPayWayEnum,
+  PaymentFlowTypeEnum,
+  OrderStatusEnum,
+} from '@artifact/lpg-api-service';
+
 
 @Injectable()
 export class OrderRepository {
   constructor(
+    private readonly dataSource: DataSource,
     @InjectRepository(OrderList) private readonly orderListRepository: Repository<OrderList>,
+    @InjectRepository(Supplier) private readonly supplierRepository: Repository<Supplier>,
   ) {}
 
   public async getOrderInfo(order_id: string): Promise<OrderInfo | null> {
@@ -198,5 +217,146 @@ export class OrderRepository {
         arrears: order.customerInSupplier?.init_arrears || null,
       } as OrderListItem;
     });
+  }
+
+  public async createOrder(request: CreateOrderRequest, supplier_id: string): Promise<CreateOrderResponse> {
+    return this.dataSource.transaction(async (manager) => {
+      const orderId = await this.generateOrderId(supplier_id);
+
+      const orderListEntity = manager.create(OrderList as any, {
+        order_id: orderId,
+        cis_id: request.order_infos.cis_id,
+        contact_phone: request.order_infos.contact_phone,
+        note: request.order_infos.note,
+        order_status: OrderStatusEnum.undelivery,
+        discount: request.order_infos.discount,
+        gas_discount: request.order_infos.gas_discount,
+        delivery_time_stamp: request.order_infos.delivery_time_stamp,
+        create_time_stamp: new Date().toISOString(),
+        address_id: request.order_infos.address_id,
+        courier_id: request.order_infos.courier_id,
+      });
+      await manager.save(orderListEntity);
+
+      const orderGasEntities = request.order_gas_list.map((gas) =>
+        manager.create(OrderGas as any, {
+          order_id: orderId,
+          gp_id: gas.gp_id,
+          cis_gp_id: gas.cis_gp_id || undefined,
+          numbers_of_cylinder: gas.numbers_of_cylinder,
+          delivery_id: gas.delivery_id,
+        }),
+      );
+      const orderGasResult = await manager.save(orderGasEntities);
+
+      const orderCommodityEntities = request.order_commodity_list.map((commodity) =>
+        manager.create(OrderCommodity as any, {
+          order_id: orderId,
+          commodity_price_id: commodity.commodity_price_id,
+          numbers_of_commodity: commodity.numbers_of_commodity,
+          delivery_id: commodity.delivery_id,
+        }),
+      );
+      const orderCommodityResult = await manager.save(orderCommodityEntities);
+
+      const orderCylinderEntities = request.order_cylinder_infos.orderCylinderList.map((cylinder) =>
+        manager.create(OrderCylinder as any, {
+          order_id: orderId,
+          cp_id: cylinder.cp_id,
+          numbers_of_cylinder: cylinder.numbers_of_cylinder,
+          delivery_id: cylinder.delivery_id,
+        }),
+      );
+      const orderCylinderResult = await manager.save(orderCylinderEntities);
+
+      const orderCylinderMortgageEntities = request.order_cylinder_infos.orderCylinderMortgageList.map((mortgage) =>
+        manager.create(CisCylinderMortgage as any, {
+          cis_id: request.order_infos.cis_id,
+          order_id: orderId,
+          take_cylinder_type: mortgage.take_cylinder_type as any,
+          cylinder_specification: mortgage.cylinder_specification,
+          money: mortgage.money,
+          numbers_of_cylinder: mortgage.numbers_of_cylinder,
+          create_time_stamp: new Date().toISOString(),
+        }),
+      );
+      const orderCylinderMortgageResult = await manager.save(orderCylinderMortgageEntities);
+
+      const orderUsageFeeEntities = request.order_cylinder_infos.cylinderUsageFeeList.map((fee) =>
+        manager.create(OrderUsageFee as any, {
+          order_id: orderId,
+          number_of_records: fee.number_of_records,
+          money: fee.money,
+          create_time_stamp: new Date().toISOString(),
+        }),
+      );
+      const orderUsageFeeResult = await manager.save(orderUsageFeeEntities);
+
+      const orderRefundEntities = request.order_refund_list.map((refund) =>
+        manager.create(OrderRefund as any, {
+          order_id: orderId,
+          refund_gas_kilogram: refund.refund_gas_kilogram,
+          refund_gas_type: refund.refund_gas_type,
+          gas_price: refund.gas_price,
+          order_refund_type: refund.order_refund_type as any,
+        }),
+      );
+      const orderRefundResult = await manager.save(orderRefundEntities);
+
+      return {
+        order_id: orderId,
+        orderGasResult: {
+          identifiers: orderGasResult.map((r: any) => ({ order_gas_id: r.order_gas_id })),
+          generatedMaps: orderGasResult.map((r: any) => ({ order_gas_id: r.order_gas_id })),
+          raw: orderGasResult.map((r: any) => ({ order_gas_id: r.order_gas_id })),
+        },
+        orderCommodityResult: {
+          identifiers: orderCommodityResult.map((r: any) => ({ order_commodity_id: r.order_commodity_id })),
+          generatedMaps: orderCommodityResult.map((r: any) => ({ order_commodity_id: r.order_commodity_id })),
+          raw: orderCommodityResult.map((r: any) => ({ order_commodity_id: r.order_commodity_id })),
+        },
+        orderCylinderResult: {
+          identifiers: orderCylinderResult.map((r: any) => ({ order_cylinder_id: r.order_cylinder_id })),
+          generatedMaps: orderCylinderResult.map((r: any) => ({ order_cylinder_id: r.order_cylinder_id })),
+          raw: orderCylinderResult.map((r: any) => ({ order_cylinder_id: r.order_cylinder_id })),
+        },
+        orderCylinderMortgageResult: {
+          identifiers: orderCylinderMortgageResult.map((r: any) => ({ cis_cylinder_mortgage_id: r.cis_cylinder_mortgage_id })),
+          generatedMaps: orderCylinderMortgageResult.map((r: any) => ({ cis_cylinder_mortgage_id: r.cis_cylinder_mortgage_id })),
+          raw: orderCylinderMortgageResult.map((r: any) => ({ cis_cylinder_mortgage_id: r.cis_cylinder_mortgage_id })),
+        },
+        orderUsageFeeResult: {
+          identifiers: orderUsageFeeResult.map((r: any) => ({ order_usage_fee_id: r.order_usage_fee_id })),
+          generatedMaps: orderUsageFeeResult.map((r: any) => ({ order_usage_fee_id: r.order_usage_fee_id })),
+          raw: orderUsageFeeResult.map((r: any) => ({ order_usage_fee_id: r.order_usage_fee_id })),
+        },
+        orderRefundResult: {
+          identifiers: orderRefundResult.map((r: any) => ({ order_refund_id: r.order_refund_id })),
+          generatedMaps: orderRefundResult.map((r: any) => ({ order_refund_id: r.order_refund_id })),
+          raw: orderRefundResult.map((r: any) => ({ order_refund_id: r.order_refund_id })),
+        },
+        refreshMaterializedRelatedData: {
+          isArrearsOrder: false,
+          isChangeOweCylinderOrder: false,
+          isChangeCylinderInventory: true,
+          isChangeDailyStatisticsReport: true,
+          isUpdateCourierDailySummary: false,
+          isBillPayupWork: false,
+          isUpdatePayworkMix: false,
+        },
+      } as CreateOrderResponse;
+    });
+  }
+
+  private async generateOrderId(supplier_id: string): Promise<string> {
+    const supplier = await this.supplierRepository.findBy({ supplier_id });
+    const prefix = supplier[0]?.prefix;
+    const row = await this.orderListRepository
+      .createQueryBuilder('order_list')
+      .select("MAX(split_part(order_list.order_id, '_', 2)::int)", 'id_second_text')
+      .where('order_list.order_id like :prefix', { prefix: `%${prefix}O_%` })
+      .getRawOne();
+    if (!row || row.id_second_text == null) return `${prefix}O_1`;
+    return `${prefix}O_${row.id_second_text + 1}`;
   }
 }

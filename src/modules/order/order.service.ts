@@ -113,5 +113,9 @@ export class Order2Service {
     const orderList = await this.repository.getOrderList(request);
     return { orderList, rowsCount: orderList.length };
   }
+
+  public async createOrder(request: CreateOrderRequest, supplier_id: string): Promise<CreateOrderResponse> {
+    return this.repository.createOrder(request, supplier_id);
+  }
 }
 
