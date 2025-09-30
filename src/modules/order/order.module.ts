@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrderController } from './order.controller';
-import { OrderService } from './order.service';
+import { Order2Service, OrderService } from './order.service';
 import { OrderModel } from './order.model';
 import {
   OrderList,
@@ -18,6 +18,7 @@ import {
   Supplier,
 } from '@artifact/lpg-api-service';
 import { OrderRepository } from './order.repository';
+import { Order2Controller } from './order.controller';
 
 @Module({
   imports: [
@@ -36,7 +37,7 @@ import { OrderRepository } from './order.repository';
       Supplier,
     ]),
   ],
-  controllers: [OrderController],
-  providers: [OrderService, OrderModel, OrderRepository],
+  controllers: [OrderController, Order2Controller],
+  providers: [OrderService, OrderModel, OrderRepository, Order2Service],
 })
 export class OrderModule {}

@@ -14,7 +14,7 @@ import { OrderList } from '@artifact/lpg-api-service/dist/database/entities/orde
 
 @Injectable()
 export class OrderService {
-  constructor(private readonly model: OrderModel, private readonly repository: OrderRepository) {}
+  constructor(private readonly model: OrderModel) {}
 
   async getOrderInfo(order_id: string): Promise<OrderResponse> {
     const orderInfo = await this.model.getOrderInfo(order_id);
@@ -85,10 +85,28 @@ export class OrderService {
   async updateOrderPayment(request: UpdateOrderPaymentRequest): Promise<UpdateOrderPaymentResponse> {
     return this.model.updateOrderPayment(request);
   }
+}
 
-  async getOrderListById(order_id: string): Promise<OrderList[]> {
+@Injectable()
+export class Order2Service {
+  constructor(private readonly repository: OrderRepository) {}
+
+  public async getOrderInfo(order_id: string): Promise<OrderResponse> {
+    const orderInfo = await this.repository.getOrderInfo(order_id);
+    if (!orderInfo) throw new Error('Order not found');
+
+    const totalPrice = this.mockCalculateTotalPrice(orderInfo as any);
+    const arrears = orderInfo.customerInSupplier?.init_arrears || 0;
+
+    return { orderInfos: orderInfo, arrears, totalPrice } as OrderResponse;
+  }
+
+  private mockCalculateTotalPrice(orderInfo: any): number {
+    return 1000;
+  }
+
+  public async getOrderListById(order_id: string): Promise<OrderList[]> {
     return this.repository.getOrderListById(order_id);
   }
 }
 
-// Orders service template

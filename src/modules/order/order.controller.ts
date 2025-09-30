@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
-import { OrderService } from './order.service';
+import { OrderService, Order2Service } from './order.service';
 import type {
   CreateOrderRequest,
   GetOrderListRequest,
@@ -13,11 +13,6 @@ export class OrderController {
   @Get(':order_id')
   getOrderInfo(@Param('order_id') order_id: string) {
     return this.service.getOrderInfo(order_id);
-  }
-
-  @Get('/get-order-list-by-id/:order_id')
-  getOrderListById(@Param('order_id') order_id: string) {
-    return this.service.getOrderListById(order_id);
   }
 
   @Post('list')
@@ -37,4 +32,13 @@ export class OrderController {
   }
 }
 
-// Orders controller template
+@Controller('order2')
+export class Order2Controller {
+  constructor(private readonly service: Order2Service) {}
+
+  @Get(':order_id')
+  getOrderInfo(@Param('order_id') order_id: string) {
+    return this.service.getOrderInfo(order_id);
+  }
+}
+
