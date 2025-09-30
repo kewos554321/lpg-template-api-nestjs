@@ -108,5 +108,10 @@ export class Order2Service {
   public async getOrderListById(order_id: string): Promise<OrderList[]> {
     return this.repository.getOrderListById(order_id);
   }
+
+  public async getOrderList(request: GetOrderListRequest): Promise<GetOrderListResponse> {
+    const orderList = await this.repository.getOrderList(request);
+    return { orderList, rowsCount: orderList.length };
+  }
 }
 

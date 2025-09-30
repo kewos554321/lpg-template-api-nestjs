@@ -40,5 +40,11 @@ export class Order2Controller {
   getOrderInfo(@Param('order_id') order_id: string) {
     return this.service.getOrderInfo(order_id);
   }
+
+  @Post('list')
+  getOrderList(@Body() body: GetOrderListRequest) {
+    return this.service.getOrderList(body);
+  }
+
 }
 
