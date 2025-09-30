@@ -1,1 +1,0 @@
-// Order created event template
