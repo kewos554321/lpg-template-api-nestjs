@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import databaseConfig from './config/database.config';
+import s3Config from './config/s3.config';
 import { DemoModule } from './modules/demo/demo.module';
 import { join } from 'path';
 import { OrderModule } from './modules/order/order.module';
@@ -93,7 +94,7 @@ import {
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig] }),
+    ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig, s3Config] }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (cs: ConfigService) => {

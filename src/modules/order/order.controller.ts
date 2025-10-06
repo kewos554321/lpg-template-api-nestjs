@@ -56,7 +56,7 @@ export class Order2Controller {
   @ApiQuery({ name: 'lastDate', required: false, description: 'Filter end ISO date', example: '2025-09-15' })
   @ApiQuery({ name: 'sortColumnName', required: false, description: 'Sort column', example: 'delivery_time_stamp' })
   @ApiQuery({ name: 'orderType', required: false, description: 'Sort direction', example: 'DESC', enum: ['ASC', 'DESC'] as any })
-  @ApiQuery({ name: 'order_status', required: false, description: 'Order status filter', example: '尚未配送' })
+  @ApiQuery({ name: 'order_status', required: false, description: 'Order status filter', example: 'undelivered' })
   @ApiQuery({ name: 'supplier_id', required: false, description: 'Supplier ID', example: 'GS_1' })
   @ApiResponse({ status: 200, description: 'Order list returned' })
   getOrderListByQuery(

@@ -6,7 +6,7 @@ let server: Handler;
 
 async function bootstrap() {
   const app = await createApp();
-  await app.init(); // 不要 listen()
+  await app.init(); // Don't call listen()
   const expressApp = app.getHttpAdapter().getInstance();
   return serverlessExpress({ app: expressApp });
 }

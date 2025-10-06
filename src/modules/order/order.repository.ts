@@ -55,13 +55,13 @@ export class OrderRepository {
         customerInSupplier: {
           customer_info: true
         },
-        address_info: true, // 使用 entity 中定義的 address_info 關聯
+        address_info: true, // Use address_info association defined in entity
       },
     });
 
     if (!order) return null;
 
-    // 轉換為 OrderInfo 格式，包含地址信息
+    // Convert to OrderInfo format, including address information
     return {
       ...order,
       address: order.address_info ? {
@@ -105,7 +105,7 @@ export class OrderRepository {
       .leftJoinAndSelect('order_list.address_info', 'address_info')
       .leftJoinAndSelect('order_list.courier_info', 'courier_info');
 
-    // 條件篩選
+    // Filter conditions
     if (request.order_status) {
       qb.andWhere('order_list.order_status = :order_status', { order_status: request.order_status });
     }
@@ -119,13 +119,13 @@ export class OrderRepository {
       qb.andWhere('order_list.delivery_time_stamp <= :lastDate', { lastDate: request.lastDate });
     }
 
-    // 分頁
+    // Pagination
     if (request.page && request.size) {
       const offset = (request.page - 1) * request.size;
       qb.skip(offset).take(request.size);
     }
 
-    // 排序
+    // Sorting
     const sortColumn = request.sortColumnName || 'delivery_time_stamp';
     const orderType = (request.orderType || 'DESC') as 'ASC' | 'DESC';
     const allowedColumns = ['delivery_time_stamp', 'create_time_stamp', 'order_id', 'order_status'];

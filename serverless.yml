@@ -13,7 +13,11 @@ provider:
     DATABASE_USERNAME: "jay"
     DATABASE_PASSWORD: "jk3oxf1e99BvY2Ns8v825eU9o34B4BD5LX"
     DATABASE_NAME: "jay_dev"
-
+    # S3 Configuration
+    AWS_REGION: ap-northeast-1
+    AWS_ACCESS_KEY_ID: ${env:AWS_ACCESS_KEY_ID}
+    AWS_SECRET_ACCESS_KEY: ${env:AWS_SECRET_ACCESS_KEY}
+    S3_BUCKET_NAME: sls-artifact-template-nestjs-dev-files
 
 plugins:
   - serverless-esbuild

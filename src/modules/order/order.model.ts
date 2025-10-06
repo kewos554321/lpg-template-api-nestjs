@@ -502,7 +502,7 @@ export class OrderModel {
         }
       }
 
-      return { message: '成功完成' } as UpdateOrderPaymentResponse;
+      return { message: 'Successfully completed' } as UpdateOrderPaymentResponse;
     });
   }
 
