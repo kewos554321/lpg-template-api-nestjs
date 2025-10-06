@@ -38,17 +38,33 @@ export class S3Service {
   constructor(private readonly configService: ConfigService) {
     const s3Config = this.configService.get('s3');
     
-    this.s3Client = new S3Client({
-      region: s3Config.region,
-      credentials: {
-        accessKeyId: s3Config.accessKeyId,
-        secretAccessKey: s3Config.secretAccessKey,
-      },
-      endpoint: s3Config.endpoint,
-      forcePathStyle: s3Config.forcePathStyle,
-    });
+    // In AWS Lambda, use IAM role instead of explicit credentials
+    const clientConfig: any = {
+      region: s3Config?.region || process.env.AWS_REGION || 'ap-northeast-1',
+    };
 
-    this.defaultBucket = s3Config.bucketName;
+    // Only set credentials if not in AWS Lambda environment
+    if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+      if (s3Config?.accessKeyId && s3Config?.secretAccessKey) {
+        clientConfig.credentials = {
+          accessKeyId: s3Config.accessKeyId,
+          secretAccessKey: s3Config.secretAccessKey,
+        };
+      }
+    }
+
+    // Set optional configurations
+    if (s3Config?.endpoint) {
+      clientConfig.endpoint = s3Config.endpoint;
+    }
+    if (s3Config?.forcePathStyle !== undefined) {
+      clientConfig.forcePathStyle = s3Config.forcePathStyle;
+    }
+
+    this.s3Client = new S3Client(clientConfig);
+    this.defaultBucket = s3Config?.bucketName || process.env.S3_BUCKET_NAME || 'sls-artifact-template-nestjs-dev-files';
+    
+    this.logger.log(`S3Service initialized with bucket: ${this.defaultBucket}, region: ${clientConfig.region}`);
   }
 
   /**
@@ -82,6 +98,8 @@ export class S3Service {
   async download(options: S3DownloadOptions): Promise<Buffer> {
     const bucket = options.bucket || this.defaultBucket;
     
+    this.logger.log(`Attempting to download file: ${options.key} from bucket: ${bucket}`);
+    
     try {
       const command = new GetObjectCommand({
         Bucket: bucket,
@@ -101,9 +119,17 @@ export class S3Service {
         chunks.push(chunk);
       }
       
-      return Buffer.concat(chunks);
+      const buffer = Buffer.concat(chunks);
+      this.logger.log(`Successfully downloaded file: ${options.key}, size: ${buffer.length} bytes`);
+      return buffer;
     } catch (error) {
-      this.logger.error(`Failed to download file ${options.key}:`, error);
+      this.logger.error(`Failed to download file ${options.key} from bucket ${bucket}:`, error);
+      this.logger.error(`Error details:`, {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        statusCode: error.$metadata?.httpStatusCode
+      });
       throw error;
     }
   }
@@ -135,6 +161,8 @@ export class S3Service {
   async exists(options: S3DownloadOptions): Promise<boolean> {
     const bucket = options.bucket || this.defaultBucket;
     
+    this.logger.log(`Checking if file exists: ${options.key} in bucket: ${bucket}`);
+    
     try {
       const command = new HeadObjectCommand({
         Bucket: bucket,
@@ -142,11 +170,14 @@ export class S3Service {
       });
 
       await this.s3Client.send(command);
+      this.logger.log(`File exists: ${options.key}`);
       return true;
     } catch (error) {
-      if (error.name === 'NotFound') {
+      if (error.name === 'NotFound' || error.code === 'NotFound') {
+        this.logger.log(`File not found: ${options.key}`);
         return false;
       }
+      this.logger.error(`Error checking file existence ${options.key}:`, error);
       throw error;
     }
   }
