@@ -8,7 +8,21 @@ async function bootstrap() {
   const app = await createApp();
   await app.init(); // Don't call listen()
   const expressApp = app.getHttpAdapter().getInstance();
-  return serverlessExpress({ app: expressApp });
+  // Enable binary responses so files are not re-encoded by API Gateway/Lambda
+  return serverlessExpress({
+    app: expressApp,
+    binarySettings: {
+      contentTypes: [
+        'application/octet-stream',
+        'image/*',
+        'application/pdf',
+        'application/zip',
+        'application/x-zip-compressed',
+        'video/*',
+        'audio/*',
+      ],
+    },
+  });
 }
 
 export const handler: Handler = async (event, context, callback) => {

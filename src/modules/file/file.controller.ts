@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { S3Service } from '../../infra/external/s3.service';
 
 @ApiTags('files')
@@ -76,48 +76,14 @@ export class FileController {
     };
   }
 
-  @Get('download/:key')
+  @Get('download')
   @ApiOperation({ summary: 'Download a file from S3' })
   @ApiResponse({ status: 200, description: 'File downloaded successfully' })
   @ApiResponse({ status: 404, description: 'File not found' })
   @Header('Content-Type', 'application/octet-stream')
   @Header('Content-Disposition', 'attachment')
-  async downloadFile(@Param('key') key: string, @Res() res: Response) {
-    try {
-      // API Gateway encodes '/' as '%2F' in path params; decode before use
-      const decodedKey = decodeURIComponent(key);
-      // First check if file exists
-      const exists = await this.s3Service.exists({ key: decodedKey });
-      if (!exists) {
-        throw new NotFoundException(`File with key ${decodedKey} not found`);
-      }
-
-      const fileBuffer = await this.s3Service.download({ key: decodedKey });
-      
-      // Extract filename from key
-      const fileName = decodedKey.split('/').pop() || 'download';
-      
-      res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.setHeader('Content-Length', fileBuffer.length);
-      
-      res.send(fileBuffer);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new NotFoundException(`File with key ${decodeURIComponent(key)} not found: ${error.message}`);
-    }
-  }
-
-  // Alternative download endpoint using query param to avoid API Gateway path decoding issues
-  @Get('download')
-  @ApiOperation({ summary: 'Download a file from S3 (via query parameter key)' })
-  @ApiResponse({ status: 200, description: 'File downloaded successfully' })
-  @ApiResponse({ status: 404, description: 'File not found' })
-  @Header('Content-Type', 'application/octet-stream')
-  @Header('Content-Disposition', 'attachment')
-  async downloadFileByQuery(@Query('key') rawKey: string, @Res() res: Response) {
+  @ApiQuery({ name: 'key', required: true, description: 'Object key in S3' })
+  async downloadFile(@Query('key') rawKey: string, @Res() res: Response) {
     const key = decodeURIComponent(rawKey || '');
     if (!key) {
       throw new BadRequestException('Missing key');
@@ -127,12 +93,14 @@ export class FileController {
       if (!exists) {
         throw new NotFoundException(`File with key ${key} not found`);
       }
-      console.log('key=', key);
+      
       const fileBuffer = await this.s3Service.download({ key });
       const fileName = key.split('/').pop() || 'download';
+      
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.setHeader('Content-Length', fileBuffer.length);
+      
       res.send(fileBuffer);
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -140,50 +108,80 @@ export class FileController {
     }
   }
 
-  @Get('info/:key')
+  @Get('download-redirect')
+  @ApiOperation({ summary: 'Redirect to a presigned S3 download URL (exact bytes, safest)' })
+  @ApiResponse({ status: 302, description: 'Redirected to S3' })
+  @ApiQuery({ name: 'key', required: true, description: 'Object key in S3' })
+  async downloadRedirect(@Query('key') rawKey: string, @Res() res: Response) {
+    const key = decodeURIComponent(rawKey || '');
+    if (!key) {
+      throw new BadRequestException('Missing key');
+    }
+    const exists = await this.s3Service.exists({ key });
+    if (!exists) {
+      throw new NotFoundException(`File with key ${key} not found`);
+    }
+    const url = await this.s3Service.getPresignedDownloadUrl(key, 300);
+    res.redirect(302, url);
+  }
+
+  @Get('info')
   @ApiOperation({ summary: 'Get file info and base64 content from S3' })
   @ApiResponse({ status: 200, description: 'File info returned successfully' })
-  async getFileInfo(@Param('key') key: string) {
+  @ApiQuery({ name: 'key', required: true, description: 'Object key in S3' })
+  async getFileInfo(@Query('key') rawKey: string) {
+    const key = decodeURIComponent(rawKey || '');
+    if (!key) {
+      throw new BadRequestException('Missing key');
+    }
     try {
-      const decodedKey = decodeURIComponent(key);
-      const fileBuffer = await this.s3Service.download({ key: decodedKey });
+      const fileBuffer = await this.s3Service.download({ key });
       
       return {
-        key: decodedKey,
+        key: key,
         data: fileBuffer.toString('base64'),
         size: fileBuffer.length,
       };
     } catch (error) {
-      throw new NotFoundException(`File with key ${decodeURIComponent(key)} not found`);
+      throw new NotFoundException(`File with key ${key} not found`);
     }
   }
 
-  @Get('presigned-upload/:key')
+  @Get('presigned-upload')
   @ApiOperation({ summary: 'Get presigned URL for uploading' })
   @ApiResponse({ status: 200, description: 'Presigned URL generated successfully' })
+  @ApiQuery({ name: 'key', required: true, description: 'Object key in S3' })
+  @ApiQuery({ name: 'contentType', required: false, description: 'Content type of the file' })
   async getPresignedUploadUrl(
-    @Param('key') key: string,
-    @Body('contentType') contentType: string = 'application/octet-stream',
+    @Query('key') rawKey: string,
+    @Query('contentType') contentType: string = 'application/octet-stream',
   ) {
-    const decodedKey = decodeURIComponent(key);
-    const url = await this.s3Service.getPresignedUploadUrl(decodedKey, contentType);
+    const key = decodeURIComponent(rawKey || '');
+    if (!key) {
+      throw new BadRequestException('Missing key');
+    }
+    const url = await this.s3Service.getPresignedUploadUrl(key, contentType);
     
     return {
-      key: decodedKey,
+      key: key,
       uploadUrl: url,
       expiresIn: 3600,
     };
   }
 
-  @Get('presigned-download/:key')
+  @Get('presigned-download')
   @ApiOperation({ summary: 'Get presigned URL for downloading' })
   @ApiResponse({ status: 200, description: 'Presigned URL generated successfully' })
-  async getPresignedDownloadUrl(@Param('key') key: string) {
-    const decodedKey = decodeURIComponent(key);
-    const url = await this.s3Service.getPresignedDownloadUrl(decodedKey);
+  @ApiQuery({ name: 'key', required: true, description: 'Object key in S3' })
+  async getPresignedDownloadUrl(@Query('key') rawKey: string) {
+    const key = decodeURIComponent(rawKey || '');
+    if (!key) {
+      throw new BadRequestException('Missing key');
+    }
+    const url = await this.s3Service.getPresignedDownloadUrl(key);
     
     return {
-      key: decodedKey,
+      key: key,
       downloadUrl: url,
       expiresIn: 3600,
     };
@@ -209,33 +207,37 @@ export class FileController {
     }
   }
 
-  @Get('exists/:key')
+  @Get('exists')
   @ApiOperation({ summary: 'Check if file exists in S3' })
   @ApiResponse({ status: 200, description: 'File existence checked' })
-  async checkFileExists(@Param('key') key: string) {
-    const decodedKey = decodeURIComponent(key);
-    const exists = await this.s3Service.exists({ key: decodedKey });
-    
-    return {
-      key: decodedKey,
-      exists,
-    };
+  @ApiQuery({ name: 'key', required: true, description: 'Object key in S3' })
+  async checkFileExists(@Query('key') rawKey: string) {
+    const key = decodeURIComponent(rawKey || '');
+    if (!key) {
+      throw new BadRequestException('Missing key');
+    }
+    const exists = await this.s3Service.exists({ key });
+    return { key, exists };
   }
 
-  @Delete(':key')
+  @Delete()
   @ApiOperation({ summary: 'Delete a file from S3' })
   @ApiResponse({ status: 200, description: 'File deleted successfully' })
-  async deleteFile(@Param('key') key: string) {
+  @ApiQuery({ name: 'key', required: true, description: 'Object key in S3' })
+  async deleteFile(@Query('key') rawKey: string) {
+    const key = decodeURIComponent(rawKey || '');
+    if (!key) {
+      throw new BadRequestException('Missing key');
+    }
     try {
-      const decodedKey = decodeURIComponent(key);
-      await this.s3Service.delete({ key: decodedKey });
+      await this.s3Service.delete({ key });
       
       return {
         message: 'File deleted successfully',
-        key: decodedKey,
+        key: key,
       };
     } catch (error) {
-      throw new NotFoundException(`File with key ${decodeURIComponent(key)} not found`);
+      throw new NotFoundException(`File with key ${key} not found`);
     }
   }
 }
