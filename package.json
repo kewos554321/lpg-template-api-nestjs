@@ -39,6 +39,8 @@
     "@redis/search": "^1.1.6",
     "@vendia/serverless-express": "^4.12.6",
     "axios": "^1.12.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
     "crypto-js": "^4.2.0",
     "jsonwebtoken": "^9.0.2",
     "md5": "^2.3.0",
