@@ -13,6 +13,7 @@ import { FileModule } from './modules/file/file.module';
 import { CommodityModule } from './modules/commodity/commodity.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
+import { RegisterModule } from './modules/register/register.module';
 import {
   AddressBinding,
   BillOfSaleWork,
@@ -201,6 +202,7 @@ import {
     CommodityModule,
     CustomerModule,
     DeliveryModule,
+    RegisterModule,
   ],
   controllers: [AppController],
   providers: [AppService],
