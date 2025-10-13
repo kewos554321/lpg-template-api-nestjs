@@ -6,8 +6,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import databaseConfig from './config/database.config';
 import s3Config from './config/s3.config';
-import { DemoModule } from './modules/demo/demo.module';
-import { join } from 'path';
 import { OrderModule } from './modules/order/order.module';
 import { FileModule } from './modules/file/file.module';
 import { CommodityModule } from './modules/commodity/commodity.module';
@@ -198,7 +196,6 @@ import {
     HealthModule,
     OrderModule,
     FileModule,
-    DemoModule,
     CommodityModule,
     CustomerModule,
     DeliveryModule,
