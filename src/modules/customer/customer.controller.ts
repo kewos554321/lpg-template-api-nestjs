@@ -13,7 +13,7 @@ export class CustomerController extends ControllerBase{
     super();
   }
 
-  @Get('suppliers')
+  @Get('')
   @ApiOperation({ summary: 'Find customer in suppliers' })
   @ApiQuery({ name: 'supplierId', required: false, description: 'Supplier ID filter' })
   @ApiResponse({ status: 200, description: 'Customer in suppliers info returned', type: CustomerInSuppliersResDto })
