@@ -2,12 +2,16 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CustomerService } from './customer.service';
 import { CustomerInSuppliersResDto } from './dto/customer-info-res.dto';
+import { ControllerBase, httpStatus } from '@artifact/aurora-api-core';
+import { plainToClass } from 'class-transformer';
 
 @ApiTags('Customer')
 @ApiBearerAuth()
 @Controller('customer')
-export class CustomerController {
-  constructor(private readonly customerService: CustomerService) {}
+export class CustomerController extends ControllerBase{
+  constructor(private readonly customerService: CustomerService) {
+    super();
+  }
 
   @Get('suppliers')
   @ApiOperation({ summary: 'Find customer in suppliers' })
@@ -18,6 +22,10 @@ export class CustomerController {
   ) {
     // TODO: 需要從 JWT token 中取得 customerId
     const customerId = 1; // 暫時硬編碼，需要實作 JWT 解析
-    return this.customerService.findCustomerInSuppliers(customerId, supplierId);
+    const result = await this.customerService.findCustomerInSuppliers(customerId, supplierId);
+    const customerInSuppliersResDto = plainToClass(CustomerInSuppliersResDto, result.data, {
+      excludeExtraneousValues: true,
+    });
+    return this.formatResponse(customerInSuppliersResDto, httpStatus.OK);
   }
 }
