@@ -1,7 +1,7 @@
 import { OrderRefundType, WorkOrderPayWayEnum } from '@artifact/lpg-api-service';
 import { Expose, Type } from 'class-transformer';
 
-import { OrderBaseInfoResDto } from './orderBaseResDto';
+import { OrderBaseInfoResDto } from './order-base-res.dto.js';
 
 class CustomerInfoResDto {
   @Expose({ name: 'customer_id' })
