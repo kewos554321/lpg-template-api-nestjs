@@ -3,7 +3,6 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { DeliveryService } from './delivery.service';
 import { CreateCustomerAddressDto } from './dto/delivery.dto';
 import { ControllerBase } from '@artifact/aurora-api-core';
-import { httpStatus } from '@artifact/aurora-api-core';
 
 @ApiTags('Delivery')
 @ApiBearerAuth()
@@ -21,7 +20,7 @@ export class DeliveryController extends ControllerBase{
     // For now, we'll need to implement proper authentication
     const customerId = 1; // This should come from JWT token
     const result = await this.deliveryService.getCustomerAddressList(customerId);
-    return this.formatResponse(result, httpStatus.OK);
+    return this.formatResponse(result, result.status);
   }
 
   @Get('address/location/:customerAddressId')
@@ -29,7 +28,7 @@ export class DeliveryController extends ControllerBase{
   @ApiResponse({ status: 200, description: 'Customer delivery list returned' })
   async getCustomerDeliveryList(@Param('customerAddressId') customerAddressId: string) {
     const result = await this.deliveryService.getCustomerDeliveryList(Number(customerAddressId));
-    return this.formatResponse(result, httpStatus.OK);
+    return this.formatResponse(result, result.status);
   }
 
   @Get('address/:customerAddressId')
@@ -37,7 +36,7 @@ export class DeliveryController extends ControllerBase{
   @ApiResponse({ status: 200, description: 'Address binding info returned' })
   async findAddressBindingInfo(@Param('customerAddressId') customerAddressId: string) {
     const result = await this.deliveryService.findAddressBindingInfo(Number(customerAddressId));
-    return this.formatResponse(result, httpStatus.OK);
+    return this.formatResponse(result, result.status);
   }
 
   @Post('address')
@@ -45,6 +44,6 @@ export class DeliveryController extends ControllerBase{
   @ApiResponse({ status: 201, description: 'Customer address created' })
   async createCustomerAddress(@Body() body: { addressInfos: CreateCustomerAddressDto; addressId?: number }) {
     const result = await this.deliveryService.createCustomerAddress(body.addressInfos, body.addressId);
-    return this.formatResponse(result, httpStatus.CREATED);
+    return this.formatResponse(result, result.status);
   }
 }

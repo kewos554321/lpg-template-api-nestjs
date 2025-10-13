@@ -23,7 +23,7 @@ export class RegisterController extends ControllerBase{
     const customerOrSupplierInfoResDto = plainToClass(CustomerOrSupplierInfoResDto, result.data, {
       excludeExtraneousValues: true,
     });
-    return this.formatResponse(customerOrSupplierInfoResDto, httpStatus.OK);
+    return this.formatResponse(customerOrSupplierInfoResDto, result.status);
   }
 
   @Get('search/list-city')
@@ -45,7 +45,7 @@ export class RegisterController extends ControllerBase{
     const supplierInfoResDto = result.data.map((item: any) =>
       plainToClass(SupplierInfoResDto, item, { excludeExtraneousValues: true }),
     );
-    return this.formatResponse(supplierInfoResDto, httpStatus.OK);
+    return this.formatResponse(supplierInfoResDto, result.status);
   }
 
   @Post('login')

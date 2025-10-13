@@ -26,6 +26,6 @@ export class CustomerController extends ControllerBase{
     const customerInSuppliersResDto = plainToClass(CustomerInSuppliersResDto, result.data, {
       excludeExtraneousValues: true,
     });
-    return this.formatResponse(customerInSuppliersResDto, httpStatus.OK);
+    return this.formatResponse(customerInSuppliersResDto, result.status);
   }
 }

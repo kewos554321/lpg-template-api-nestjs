@@ -2,12 +2,15 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CommodityService } from './commodity.service';
 import { CommodityListResDto } from './dto/commodity-list-res.dto';
+import { ControllerBase, httpStatus } from '@artifact/aurora-api-core';
 
 @ApiTags('Commodity')
 @ApiBearerAuth()
 @Controller('commodity')
-export class CommodityController {
-  constructor(private readonly commodityService: CommodityService) {}
+export class CommodityController extends ControllerBase {
+  constructor(private readonly commodityService: CommodityService) {
+    super();
+  }
 
   @Get('list')
   @ApiOperation({ summary: 'Get commodity list' })
@@ -20,7 +23,8 @@ export class CommodityController {
   ) {
     // TODO: 需要從 JWT token 中取得 customerId
     const customerId = 1; // 暫時硬編碼，需要實作 JWT 解析
-    return this.commodityService.getCommodityList(customerId, supplierId, commodityType);
+    const result = await this.commodityService.getCommodityList(customerId, supplierId, commodityType);
+    return this.formatResponse(result, result.status);
   }
 
   @Get('types')
@@ -32,6 +36,7 @@ export class CommodityController {
   ) {
     // TODO: 需要從 JWT token 中取得 customerId
     const customerId = 1; // 暫時硬編碼，需要實作 JWT 解析
-    return this.commodityService.getCommodityTypes(customerId, supplierId);
+    const result = await this.commodityService.getCommodityTypes(customerId, supplierId);
+    return this.formatResponse(result, result.status);
   }
 }
