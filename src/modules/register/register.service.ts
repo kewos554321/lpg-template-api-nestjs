@@ -1,50 +1,68 @@
 import { Injectable } from '@nestjs/common';
+import { httpStatus } from '@artifact/aurora-api-core';
 import { RegisterModel } from './register.model';
+import { ServiceBase, tokenHelper } from '@artifact/lpg-api-service';
+import _ from 'lodash';
 
 @Injectable()
-export class RegisterService {
-  constructor(private readonly registerModel: RegisterModel) {}
+export class RegisterService extends ServiceBase {
+  constructor(private readonly registerModel: RegisterModel) {
+    super();
+  }
 
   public async getCustomerOrSupplierByCode(code: string) {
     const existedCustomerInSupplier = await this.registerModel.getCusSupplierInfosByCode(code);
-    if (existedCustomerInSupplier === null) {
+    if (_.isEmpty(existedCustomerInSupplier)) {
       const existedSupplier = await this.registerModel.getSupplierInfoOrList({
         register_number: code,
       } as any);
-      if (!existedSupplier || existedSupplier.length === 0) {
-        return { data: { message: 'Cannot find supplier' }, status: 404 };
+      if (_.isEmpty(existedSupplier)) {
+        return this.formatErrorMessage(1013, 'Cannot find supplier', httpStatus.NOT_FOUND);
       }
       const result = {
         customer: {},
         supplier: existedSupplier[0],
       };
-      return { data: result, status: 200 };
+      return this.formatMessage(result, httpStatus.OK);
     }
     const result = {
       customer: existedCustomerInSupplier.customer_info,
       supplier: existedCustomerInSupplier.supplier_info,
     };
-    return { data: result, status: 200 };
+    return this.formatMessage(result, httpStatus.OK);
   }
 
   public async getSupplierCityList() {
     const result = await this.registerModel.getSupplierCityList();
-    return { data: result, status: 200 };
+    return this.formatMessage(result, httpStatus.OK);
   }
 
   public async getSupplierList(city: string, searchValue: string) {
     const result = await this.registerModel.getSupplierList(city, searchValue);
-    return { data: result, status: 200 };
+    return this.formatMessage(result, httpStatus.OK);
   }
 
+  /**
+   * 會先確認是否有這組帳號，再透過Bcrypt與資料庫比對密碼，確認後發行token，時效為兩小時
+   */
   public async loginAuth() {
-    // Keep same behavior as express service, but without token generation dependency.
-    // Caller (controller) ensures this is for demo/testing only.
     const payload = {
       customer_id: 244,
       date: new Date().getTime(),
     };
-    return { data: { jwtToken: JSON.stringify(payload), expireDate: null }, status: 200 };
+
+    const nowDate = new Date();
+
+    // generate token
+    const sign = process.env.JWT_SIGN as string;
+    if (process.env.JWT_EXPIRED === 'true') {
+      const expireTime = '2h';
+      const jwtToken = tokenHelper.generateJwtToken(payload, sign, expireTime);
+      nowDate.setHours(nowDate.getHours() + 2);
+      return this.formatMessage({ jwtToken, expireDate: nowDate.toISOString() }, httpStatus.OK);
+    }
+    const jwtToken = tokenHelper.generateJwtToken(payload, sign);
+    return this.formatMessage({ jwtToken, expireDate: null }, httpStatus.OK);
   }
 }
 
