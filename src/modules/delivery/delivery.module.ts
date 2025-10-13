@@ -16,6 +16,6 @@ import { AddressBinding } from '@artifact/lpg-api-service/dist/database/entities
   ],
   controllers: [DeliveryController],
   providers: [DeliveryService, DeliveryModel],
-  exports: [DeliveryService],
+  exports: [DeliveryService, DeliveryModel],
 })
 export class DeliveryModule {}

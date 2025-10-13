@@ -1,26 +1,24 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { OrderController } from './order.controller';
-import { Order2Service, OrderService } from './order.service';
-import { OrderModel } from './order.model';
 import {
-  OrderList,
-  OrderGas,
+  CisGasPrice,
+  Customer,
+  CustomerDelivery,
+  CustomerInSuppliers,
+  GasPrice,
   OrderCommodity,
-  OrderCylinder,
-  CisCylinderMortgage,
+  OrderGas,
+  OrderList,
   OrderUsageFee,
-  OrderRefund,
-  OrderPayup,
-  OrderPayupWork,
-  Check,
-  CisWallet,
   Supplier,
-  DeliveryAddress,
-  Courier,
 } from '@artifact/lpg-api-service';
-import { OrderRepository } from './order.repository';
-import { Order2Controller } from './order.controller';
+import { OrderController } from './order.controller.js';
+import { OrderService } from './order.service.js';
+import { OrderModel } from './order.model.js';
+import { DeliveryModule } from '../delivery/delivery.module';
+import { CustomerModule } from '../customer/customer.module';
+import { AddressBinding } from '@artifact/lpg-api-service/dist/database/entities/address_binding';
+import { ValidParam } from '@artifact/aurora-api-core';
 
 @Module({
   imports: [
@@ -28,20 +26,21 @@ import { Order2Controller } from './order.controller';
       OrderList,
       OrderGas,
       OrderCommodity,
-      OrderCylinder,
-      CisCylinderMortgage,
       OrderUsageFee,
-      OrderRefund,
-      OrderPayup,
-      OrderPayupWork,
-      Check,
-      CisWallet,
       Supplier,
-      DeliveryAddress,
-      Courier,
+      GasPrice,
+      CisGasPrice,
+      Customer,
+      CustomerDelivery,
+      CustomerInSuppliers,
+      AddressBinding,
     ]),
+    DeliveryModule,
+    CustomerModule,
   ],
-  controllers: [OrderController, Order2Controller],
-  providers: [OrderService, OrderModel, OrderRepository, Order2Service],
+  controllers: [OrderController],
+  providers: [OrderService, OrderModel, ValidParam],
 })
 export class OrderModule {}
+
+

@@ -1,1 +1,0 @@
-// Order query DTO template

@@ -1,97 +1,123 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { OrderService, Order2Service } from './order.service';
-import type {
-  CreateOrderRequest,
-  GetOrderListRequest,
-  UpdateOrderPaymentRequest,
-} from './dto/order.dto';
+import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ControllerBase, httpStatus, ValidParam } from '@artifact/aurora-api-core';
+import { plainToClass } from 'class-transformer';
+import { OrderService } from './order.service.js';
+import { OrderInfoResDto } from './dto/order-info-res.dto.js';
+import { OrderListDataResDto } from './dto/order-list-res.dto.js';
+import { GasPriceListResDto } from './dto/gas-price-res.dto.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Order')
-@ApiBearerAuth()
 @Controller('order')
-export class OrderController {
-  constructor(private readonly service: OrderService) {}
-
-  @Get(':order_id')
-  getOrderInfo(@Param('order_id') order_id: string) {
-    return this.service.getOrderInfo(order_id);
+export class OrderController extends ControllerBase {
+  constructor(private readonly orderService: OrderService, private readonly validParam: ValidParam) {
+    super();
   }
 
-  @Post('list')
-  getOrderList(@Body() body: GetOrderListRequest) {
-    return this.service.getOrderList(body);
+  @Get(':orderId')
+  @ApiOperation({ summary: 'Get order info' })
+  async getOrderInfo(@Param('orderId') orderId: string) {
+    const result = await this.orderService.getOrderInfo(orderId);
+    const orderInfoResDto = plainToClass(OrderInfoResDto, result.data, {
+      excludeExtraneousValues: true,
+    });
+    return this.formatResponse(orderInfoResDto, result.status);
   }
 
-  @Post()
-  createOrder(@Body() body: CreateOrderRequest) {
-    const supplier_id = 'GS_1';
-    return this.service.createOrder(body, supplier_id);
-  }
-
-  @Patch('payment')
-  updateOrderPayment(@Body() body: UpdateOrderPaymentRequest) {
-    return this.service.updateOrderPayment(body);
-  }
-}
-
-@ApiTags('Order2')
-@ApiBearerAuth()
-@Controller('order2')
-export class Order2Controller {
-  constructor(private readonly service: Order2Service) {}
-
-  @Get(':order_id')
-  @ApiOperation({ summary: 'Get order info by ID' })
-  @ApiResponse({ status: 200, description: 'Order info returned' })
-  getOrderInfo(@Param('order_id') order_id: string) {
-    return this.service.getOrderInfo(order_id);
-  }
-
-  @Post('list')
-  @ApiOperation({ summary: 'List orders (query via URL querystring)' })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number (>=1)', example: 1 })
-  @ApiQuery({ name: 'size', required: false, description: 'Page size', example: 10 })
-  @ApiQuery({ name: 'firstDate', required: false, description: 'Filter start ISO date', example: '2025-09-01' })
-  @ApiQuery({ name: 'lastDate', required: false, description: 'Filter end ISO date', example: '2025-09-15' })
-  @ApiQuery({ name: 'sortColumnName', required: false, description: 'Sort column', example: 'delivery_time_stamp' })
-  @ApiQuery({ name: 'orderType', required: false, description: 'Sort direction', example: 'DESC', enum: ['ASC', 'DESC'] as any })
-  @ApiQuery({ name: 'order_status', required: false, description: 'Order status filter', example: 'undelivered' })
-  @ApiQuery({ name: 'supplier_id', required: false, description: 'Supplier ID', example: 'GS_1' })
-  @ApiResponse({ status: 200, description: 'Order list returned' })
-  getOrderListByQuery(
-    @Query('page') page?: string,
-    @Query('size') size?: string,
-    @Query('firstDate') firstDate?: string,
-    @Query('lastDate') lastDate?: string,
-    @Query('sortColumnName') sortColumnName?: string,
-    @Query('orderType') orderType?: 'ASC' | 'DESC',
-    @Query('order_status') order_status?: string,
-    @Query('supplier_id') supplier_id?: string,
+  @Get('search/unaccomplished')
+  @ApiOperation({ summary: 'Get unaccomplished order list' })
+  @ApiQuery({ name: 'supplierId', required: true })
+  async getUnaccomplishedOrderList(
+    @CurrentUser() user: any,
+    @Query('supplierId') supplierId: string,
   ) {
-    const req: GetOrderListRequest = {
-      page: page ? Number(page) : undefined,
-      size: size ? Number(size) : undefined,
-      firstDate,
-      lastDate,
-      sortColumnName,
-      orderType,
-      order_status,
-      supplier_id,
-    };
-    return this.service.getOrderList(req);
+    const customerId = Number(user.customer_id);
+    const result = await this.orderService.getOrderList(
+      0,
+      Number.MAX_SAFE_INTEGER,
+      customerId,
+      supplierId,
+      false,
+    );
+    const orderListResDto = plainToClass(OrderListDataResDto, result.data, {
+      excludeExtraneousValues: true,
+    });
+    return this.formatResponse(orderListResDto, result.status);
   }
 
-  // @Post('list')
-  // getOrderList(@Body() body: GetOrderListRequest) {
-  //   return this.service.getOrderList(body);
-  // }
+  @Get('search/accomplished')
+  @ApiOperation({ summary: 'Get accomplished order list' })
+  @ApiQuery({ name: 'page', required: true })
+  @ApiQuery({ name: 'size', required: true })
+  @ApiQuery({ name: 'supplierId', required: true })
+  async getAccomplishedOrderList(
+    @CurrentUser() user: any,
+    @Query('page') page: number,
+    @Query('size') size: number,
+    @Query('supplierId') supplierId: string,
+  ) {
+    const customerId = Number(user.customer_id);
+    const result = await this.orderService.getOrderList(page, size, customerId, supplierId, true);
+    const orderListResDto = plainToClass(OrderListDataResDto, result.data, {
+      excludeExtraneousValues: true,
+    });
+    return this.formatResponse(orderListResDto, result.status);
+  }
+
+  @Get('gas/price')
+  @ApiOperation({ summary: 'Get gas price list' })
+  @ApiQuery({ name: 'supplierId', required: true })
+  @ApiQuery({ name: 'gasType', required: false })
+  @ApiQuery({ name: 'kilogram', required: false })
+  async getGasPriceList(
+    @CurrentUser() user: any,
+    @Query('supplierId') supplierId: string,
+    @Query('gasType') gasType?: string,
+    @Query('kilogram') kilogram?: number,
+  ) {
+    const customerId = Number(user.customer_id);
+    const result = await this.orderService.getGasPriceList(customerId, supplierId, gasType, kilogram);
+    const gasPriceListResDto = plainToClass(GasPriceListResDto, result.data, {
+      excludeExtraneousValues: true,
+    });
+    return this.formatResponse(gasPriceListResDto, result.status);
+  }
 
   @Post()
-  createOrder(@Body() body: CreateOrderRequest) {
-    const supplier_id = 'GS_1';
-    return this.service.createOrder(body, supplier_id);
-  }
+  @ApiOperation({ summary: 'Create order' })
+  async createOrder(
+    @CurrentUser() user: any,
+    @Body()
+    body: any,
+  ) {
+    const customerId = Number(user.customer_id);
 
+    const {
+      orderInfo,
+      orderGasList,
+      orderCommodityList,
+      orderUsageFeeList,
+      supplierId,
+      customerInfoInOrder,
+    } = body;
+
+    // Validation is handled via DTOs/schema in future; keep parity now
+    if (!orderInfo || !orderGasList || !supplierId) {
+      return this.formatResponse('Please check your body.', httpStatus.BAD_REQUEST);
+    }
+
+    const result = await this.orderService.createOrder(
+      orderInfo,
+      orderGasList,
+      orderCommodityList,
+      orderUsageFeeList,
+      customerId,
+      supplierId,
+      customerInfoInOrder,
+    );
+    return this.formatResponse(result.data, result.status);
+  }
 }
+
 

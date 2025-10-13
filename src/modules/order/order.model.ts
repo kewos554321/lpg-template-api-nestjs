@@ -1,521 +1,372 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, QueryRunner } from 'typeorm';
 import {
-  OrderList,
-  OrderGas,
+  AddressBinding,
+  CisGasPrice,
+  Customer,
+  CustomerDelivery,
+  CustomerInSuppliers,
+  DeliveryTypeEnum,
+  GasPrice,
   OrderCommodity,
-  OrderCylinder,
-  CisCylinderMortgage,
+  OrderDeliveryStatusEnum,
+  OrderGas,
+  OrderList,
+  OrderStatusEnum,
   OrderUsageFee,
-  OrderRefund,
-  OrderPayup,
-  OrderPayupWork,
-  Check,
-  CisWallet,
   Supplier,
-  WorkPayWayEnum,
-  PaymentFlowTypeEnum,
+  typeormHelper,
 } from '@artifact/lpg-api-service';
-import {
-  CreateOrderRequest,
-  CreateOrderResponse,
-  GetOrderListRequest,
-  OrderInfo,
-  OrderListItem,
-  UpdateOrderPaymentRequest,
-  UpdateOrderPaymentResponse,
-} from './dto/order.dto';
+import _ from 'lodash';
+
+import { CreateOrderGasInterface } from './interface/create-order.interface.js';
+
+export enum OrderListStatus {
+  delivering = '正在配送中',
+  waiting = '等待接單',
+  scheduled = '預約配送訂單',
+  accomplish = '訂單已完成',
+}
 
 @Injectable()
 export class OrderModel {
   constructor(
-    private readonly dataSource: DataSource,
-    @InjectRepository(OrderList) private readonly orderRepo: Repository<any>,
-    @InjectRepository(Supplier) private readonly supplierRepo: Repository<any>,
+    @InjectRepository(OrderList) private readonly orderRepository: Repository<OrderList>,
+    @InjectRepository(Supplier) private readonly supplierRepository: Repository<Supplier>,
+    @InjectRepository(CisGasPrice) private readonly cisGasPriceRepository: Repository<CisGasPrice>,
+    @InjectRepository(GasPrice) private readonly gasPriceRepository: Repository<GasPrice>,
+    @InjectRepository(CustomerDelivery) private readonly customerDeliveryRepository: Repository<CustomerDelivery>,
   ) {}
 
-  async getOrderInfo(order_id: string): Promise<OrderInfo | null> {
-    const qb = this.orderRepo
+  private returnOrderBaseInfo() {
+    const orderModel = this.orderRepository
       .createQueryBuilder('order_list')
-      .leftJoinAndSelect('order_list.order_gas_list', 'order_gas_list')
-      .leftJoinAndSelect('order_gas_list.cis_gas_price_info', 'cis_gas_price_info')
-      .leftJoinAndSelect('cis_gas_price_info.gas_cylinder_info', 'gas_cylinder_info')
-      .leftJoinAndSelect('order_list.order_commodity_list', 'order_commodity_list')
-      .leftJoinAndSelect('order_commodity_list.commodity_price_info', 'commodity_price_info')
-      .leftJoinAndSelect('commodity_price_info.commodity_info', 'commodity_info')
-      .leftJoinAndSelect('order_list.order_cylinder_list', 'order_cylinder_list')
-      .leftJoinAndSelect('order_cylinder_list.cylinder_price_info', 'cylinder_price_info')
-      .leftJoinAndSelect('order_list.order_payup_list', 'order_payup_list')
-      .leftJoinAndSelect('order_list.take_back_cylinder_work_list', 'take_back_cylinder_work_list')
+      .select()
+      .leftJoinAndSelect('order_list.order_gas_list', 'orderGasList')
+      .leftJoinAndSelect('orderGasList.gas_price_info', 'gasPrice')
+      .leftJoinAndSelect('orderGasList.cis_gas_price_info', 'cisGasPrice')
+      .leftJoinAndSelect('gasPrice.gas_cylinder_info', 'gasCylinder')
+      .leftJoinAndSelect('cisGasPrice.gas_cylinder_info', 'cisGasCylinder')
+      .leftJoinAndSelect('orderGasList.customer_delivery_info', 'customerDelivery')
+      .leftJoinAndSelect('order_list.order_commodity_list', 'orderCommodityList')
+      .leftJoinAndSelect('orderCommodityList.commodity_price_info', 'commodityPrice')
+      .leftJoinAndSelect('commodityPrice.commodity_info', 'commodity')
+      .leftJoinAndSelect('order_list.order_usage_fee_list', 'orderUsageFeeList')
       .leftJoinAndSelect('order_list.order_refund_list', 'order_refund_list')
-      .leftJoinAndSelect('order_list.cis_cylinder_mortgage_list', 'cis_cylinder_mortgage_list')
-      .leftJoinAndSelect('order_list.order_usage_fee_list', 'order_usage_fee_list')
+      .leftJoin(
+        (subQuery) => {
+          return subQuery
+            .select([
+              'address.cis_id as cis_id',
+              'address_binding.address_binding_id as address_binding_id',
+            ])
+            .from(AddressBinding, 'address_binding')
+            .leftJoin('address_binding.customerAddressInfo', 'customerAddress')
+            .leftJoin('address_binding.addressInfo', 'address')
+            .leftJoin('address.cis_info', 'cisInfo')
+            .where('customerAddress.deleted = false')
+            .andWhere('address.deleted = false');
+        },
+        'lastest_address_binding',
+        'lastest_address_binding.cis_id = order_list.cis_id',
+      )
+      .leftJoinAndSelect(
+        'order_list.address_binding_info',
+        'addressBinding',
+        'addressBinding.address_binding_id = lastest_address_binding.address_binding_id',
+      )
+      .leftJoinAndSelect('addressBinding.customerAddressInfo', 'customerAddress')
+      .leftJoinAndSelect('order_list.courier_info', 'courier')
+      .leftJoinAndSelect('order_list.cylinder_action_list', 'cylinder_action_list')
+      .leftJoinAndSelect('cylinder_action_list.cylinderInfo', 'cylinder')
       .leftJoinAndSelect('order_list.customerInSupplier', 'customerInSupplier')
-      .leftJoinAndSelect('customerInSupplier.customer_info', 'customer_info')
-      .leftJoin('DeliveryAddress', 'delivery_address', 'delivery_address.address_id = order_list.address_id')
-      .addSelect([
-        'delivery_address.address_id as delivery_address_address_id',
-        'delivery_address.cis_id as delivery_address_cis_id',
-        'delivery_address.city as delivery_address_city',
-        'delivery_address.site_id as delivery_address_site_id',
-        'delivery_address.village as delivery_address_village',
-        'delivery_address.neighborhood as delivery_address_neighborhood',
-        'delivery_address.road as delivery_address_road',
-        'delivery_address.section as delivery_address_section',
-        'delivery_address.lane as delivery_address_lane',
-        'delivery_address.alley as delivery_address_alley',
-        'delivery_address.address_number as delivery_address_address_number',
-        'delivery_address.floor as delivery_address_floor',
-        'delivery_address.room as delivery_address_room',
-        'delivery_address.full_address as delivery_address_full_address',
-        'delivery_address.extra as delivery_address_extra',
-        'delivery_address.latitude as delivery_address_latitude',
-        'delivery_address.longitude as delivery_address_longitude',
-        'delivery_address.deleted as delivery_address_deleted',
-        'delivery_address.address_code as delivery_address_address_code',
-      ])
-      .where('order_list.order_id = :order_id', { order_id });
+      .leftJoinAndSelect('customerInSupplier.customer_info', 'customer')
+      .leftJoinAndSelect('order_list.order_payup_list', 'order_payup_list')
+      .leftJoinAndSelect('order_payup_list.order_payup_work_info', 'order_payup_work')
+      .leftJoinAndSelect('order_payup_work.bill_of_sale_work_info', 'bill_of_sale_work');
 
-    const res = await qb.getRawAndEntities();
-    if (!res.entities[0]) return null;
-    const order = res.entities[0];
-    const raw = res.raw[0];
-
-    const addressInfo = raw
-      ? {
-          delivery_address_address_id: raw.delivery_address_address_id,
-          delivery_address_cis_id: raw.delivery_address_cis_id,
-          delivery_address_city: raw.delivery_address_city,
-          delivery_address_site_id: raw.delivery_address_site_id,
-          delivery_address_village: raw.delivery_address_village,
-          delivery_address_neighborhood: raw.delivery_address_neighborhood,
-          delivery_address_road: raw.delivery_address_road,
-          delivery_address_section: raw.delivery_address_section,
-          delivery_address_lane: raw.delivery_address_lane,
-          delivery_address_alley: raw.delivery_address_alley,
-          delivery_address_address_number: raw.delivery_address_address_number,
-          delivery_address_floor: raw.delivery_address_floor,
-          delivery_address_room: raw.delivery_address_room,
-          delivery_address_full_address: raw.delivery_address_full_address,
-          delivery_address_extra: raw.delivery_address_extra,
-          delivery_address_latitude: raw.delivery_address_latitude,
-          delivery_address_longitude: raw.delivery_address_longitude,
-          delivery_address_deleted: raw.delivery_address_deleted,
-          delivery_address_address_code: raw.delivery_address_address_code,
-          address: raw.delivery_address_full_address,
-        }
-      : null;
-
-    return { ...(order as any), address: addressInfo } as OrderInfo;
+    return orderModel;
   }
 
-  async getOrderList(request: GetOrderListRequest): Promise<OrderListItem[]> {
-    const qb = this.orderRepo
-      .createQueryBuilder('order_list')
-      .leftJoinAndSelect('order_list.customerInSupplier', 'customerInSupplier')
-      .leftJoinAndSelect('customerInSupplier.customer_info', 'customer_info')
-      .leftJoin('DeliveryAddress', 'delivery_address', 'delivery_address.address_id = order_list.address_id')
-      .addSelect([
-        'delivery_address.address_id as delivery_address_address_id',
-        'delivery_address.full_address as delivery_address_full_address',
-        'delivery_address.city as delivery_address_city',
-        'delivery_address.site_id as delivery_address_site_id',
-        'delivery_address.village as delivery_address_village',
-        'delivery_address.neighborhood as delivery_address_neighborhood',
-        'delivery_address.road as delivery_address_road',
-        'delivery_address.section as delivery_address_section',
-        'delivery_address.alley as delivery_address_alley',
-        'delivery_address.lane as delivery_address_lane',
-        'delivery_address.address_number as delivery_address_address_number',
-        'delivery_address.floor as delivery_address_floor',
-        'delivery_address.room as delivery_address_room',
-        'delivery_address.extra as delivery_address_extra',
-        'delivery_address.address_code as delivery_address_address_code',
-      ])
-      .leftJoin('Courier', 'courier', 'courier.courier_id = order_list.courier_id')
-      .addSelect([
-        'courier.courier_id as courier_courier_id',
-        'courier.courier_name as courier_courier_name',
-        'courier.account as courier_account',
-        'courier.login_time_stamp as courier_login_time_stamp',
-        'courier.supplier_id as courier_supplier_id',
-        'courier.deleted as courier_deleted',
-        'courier.create_time_stamp as courier_create_time_stamp',
-      ]);
-
-    if (request.order_status) {
-      qb.andWhere('order_list.order_status = :order_status', { order_status: request.order_status });
-    }
-    if (request.supplier_id) {
-      qb.andWhere('customerInSupplier.supplier_id = :supplier_id', { supplier_id: request.supplier_id });
-    }
-    if (request.firstDate) {
-      qb.andWhere('order_list.delivery_time_stamp >= :firstDate', { firstDate: request.firstDate });
-    }
-    if (request.lastDate) {
-      qb.andWhere('order_list.delivery_time_stamp <= :lastDate', { lastDate: request.lastDate });
-    }
-    if (request.page && request.size) {
-      const offset = (request.page - 1) * request.size;
-      qb.skip(offset).take(request.size);
-    }
-    const sortColumn = request.sortColumnName || 'delivery_time_stamp';
-    const orderType = (request.orderType || 'DESC') as 'ASC' | 'DESC';
-    const allowed = ['delivery_time_stamp', 'create_time_stamp', 'order_id', 'order_status'];
-    if (allowed.includes(sortColumn)) qb.orderBy(`order_list.${sortColumn}`, orderType);
-    else qb.orderBy('order_list.delivery_time_stamp', 'DESC');
-
-    const result = await qb.getRawAndEntities();
-    return result.entities.map((order: any, idx) => {
-      const raw: any = result.raw[idx];
-      const totalPrice = (order.discount || 0) + (order.gas_discount || 0);
-      return {
-        order_list_order_id: order.order_id,
-        order_list_contact_phone: order.contact_phone,
-        order_list_note: order.note,
-        order_list_order_status: order.order_status,
-        order_list_discount: order.discount || null,
-        order_list_gas_discount: order.gas_discount || null,
-        order_list_delivery_time_stamp: order.delivery_time_stamp || null,
-        order_list_create_time_stamp: order.create_time_stamp || null,
-        customerInSupplier_cis_id: order.customerInSupplier?.cis_id || null,
-        customerInSupplier_customer_id: order.customerInSupplier?.customer_id || null,
-        customerInSupplier_supplier_id: order.customerInSupplier?.supplier_id || null,
-        customerInSupplier_customer_status: order.customerInSupplier?.customer_status || null,
-        customerInSupplier_authentication_code: order.customerInSupplier?.authentication_code || null,
-        customerInSupplier_represent_address_id: order.customerInSupplier?.represent_address_id || null,
-        customerInSupplier_note: order.customerInSupplier?.note || null,
-        customerInSupplier_order_note: order.customerInSupplier?.order_note || null,
-        customerInSupplier_customer_type: order.customerInSupplier?.customer_type || null,
-        customerInSupplier_init_arrears: order.customerInSupplier?.init_arrears || null,
-        customerInSupplier_carrier_type: order.customerInSupplier?.carrier_type || null,
-        customerInSupplier_invoice_carrier: order.customerInSupplier?.invoice_carrier || null,
-        customerInSupplier_customer_name: order.customerInSupplier?.customer_name || null,
-        customerInSupplier_main_phone: order.customerInSupplier?.main_phone || null,
-        customerInSupplier_tax_id_number: order.customerInSupplier?.tax_id_number || null,
-        customerInSupplier_company_name: order.customerInSupplier?.company_name || null,
-        address_id: order.address_id || 0,
-        address: raw?.delivery_address_full_address || null,
-        address_city: raw?.delivery_address_city || null,
-        address_site_id: raw?.delivery_address_site_id || null,
-        address_village: raw?.delivery_address_village || null,
-        address_neighborhood: raw?.delivery_address_neighborhood || null,
-        address_road: raw?.delivery_address_road || null,
-        address_section: raw?.delivery_address_section || null,
-        address_alley: raw?.delivery_address_alley || null,
-        address_lane: raw?.delivery_address_lane || null,
-        address_address_number: raw?.delivery_address_address_number || null,
-        address_floor: raw?.delivery_address_floor || null,
-        address_room: raw?.delivery_address_room || null,
-        address_extra: raw?.delivery_address_extra || null,
-        address_address_code: raw?.delivery_address_address_code || null,
-        courier_courier_id: raw?.courier_courier_id || null,
-        courier_courier_name: raw?.courier_courier_name || null,
-        courier_account: raw?.courier_account || null,
-        courier_login_time_stamp: raw?.courier_login_time_stamp || null,
-        courier_supplier_id: raw?.courier_supplier_id || null,
-        courier_deleted: raw?.courier_deleted || null,
-        courier_create_time_stamp: raw?.courier_create_time_stamp || null,
-        total_price: totalPrice,
-        arrears: order.customerInSupplier?.init_arrears || null,
-      } as OrderListItem;
-    });
+  public async getOrderInfo(orderId: string) {
+    const orderInfo = await this.returnOrderBaseInfo()
+      .where('order_list.order_id = :orderId', { orderId })
+      .getOne();
+    return orderInfo as any;
   }
 
-  async createOrder(request: CreateOrderRequest, supplier_id: string): Promise<CreateOrderResponse> {
-    return this.dataSource.transaction(async (manager) => {
-      const orderId = await this.generateOrderId(supplier_id);
+  public async getOrderList(
+    page: number,
+    size: number,
+    customerId: number,
+    supplierId: string,
+    isAccomplished: boolean,
+  ) {
+    const selectOrderListModel = this.returnOrderBaseInfo()
+      .skip(page * size)
+      .take(size)
+      .where('customerAddress.customer_id = :customerId', { customerId })
+      .andWhere('customerInSupplier.supplier_id = :supplierId', { supplierId });
 
-      const orderListEntity = manager.create(OrderList as any, {
-        order_id: orderId,
-        cis_id: request.order_infos.cis_id,
-        contact_phone: request.order_infos.contact_phone,
-        note: request.order_infos.note,
-        order_status: 'undelivery',
-        discount: request.order_infos.discount,
-        gas_discount: request.order_infos.gas_discount,
-        delivery_time_stamp: request.order_infos.delivery_time_stamp,
-        create_time_stamp: new Date().toISOString(),
-        address_id: request.order_infos.address_id,
-        courier_id: request.order_infos.courier_id,
+    if (isAccomplished) {
+      selectOrderListModel.andWhere('order_list.order_status = :orderStatus', {
+        orderStatus: OrderStatusEnum.accomplish,
       });
-      await manager.save(orderListEntity);
+    } else {
+      selectOrderListModel.andWhere('order_list.order_status != :orderStatus', {
+        orderStatus: OrderStatusEnum.accomplish,
+      });
+    }
 
-      const orderGasEntities = request.order_gas_list.map((gas) =>
-        manager.create(OrderGas as any, {
-          order_id: orderId,
-          gp_id: gas.gp_id,
-          cis_gp_id: gas.cis_gp_id || undefined,
-          numbers_of_cylinder: gas.numbers_of_cylinder,
-          delivery_id: gas.delivery_id,
-        }),
-      );
-      const orderGasResult = await manager.save(orderGasEntities);
-
-      const orderCommodityEntities = request.order_commodity_list.map((commodity) =>
-        manager.create(OrderCommodity as any, {
-          order_id: orderId,
-          commodity_price_id: commodity.commodity_price_id,
-          numbers_of_commodity: commodity.numbers_of_commodity,
-          delivery_id: commodity.delivery_id,
-        }),
-      );
-      const orderCommodityResult = await manager.save(orderCommodityEntities);
-
-      const orderCylinderEntities = request.order_cylinder_infos.orderCylinderList.map((cylinder) =>
-        manager.create(OrderCylinder as any, {
-          order_id: orderId,
-          cp_id: cylinder.cp_id,
-          numbers_of_cylinder: cylinder.numbers_of_cylinder,
-          delivery_id: cylinder.delivery_id,
-        }),
-      );
-      const orderCylinderResult = await manager.save(orderCylinderEntities);
-
-      const orderCylinderMortgageEntities = request.order_cylinder_infos.orderCylinderMortgageList.map((mortgage) =>
-        manager.create(CisCylinderMortgage as any, {
-          cis_id: request.order_infos.cis_id,
-          order_id: orderId,
-          take_cylinder_type: mortgage.take_cylinder_type as any,
-          cylinder_specification: mortgage.cylinder_specification,
-          money: mortgage.money,
-          numbers_of_cylinder: mortgage.numbers_of_cylinder,
-          create_time_stamp: new Date().toISOString(),
-        }),
-      );
-      const orderCylinderMortgageResult = await manager.save(orderCylinderMortgageEntities);
-
-      const orderUsageFeeEntities = request.order_cylinder_infos.cylinderUsageFeeList.map((fee) =>
-        manager.create(OrderUsageFee as any, {
-          order_id: orderId,
-          number_of_records: fee.number_of_records,
-          money: fee.money,
-          create_time_stamp: new Date().toISOString(),
-        }),
-      );
-      const orderUsageFeeResult = await manager.save(orderUsageFeeEntities);
-
-      const orderRefundEntities = request.order_refund_list.map((refund) =>
-        manager.create(OrderRefund as any, {
-          order_id: orderId,
-          refund_gas_kilogram: refund.refund_gas_kilogram,
-          refund_gas_type: refund.refund_gas_type,
-          gas_price: refund.gas_price,
-          order_refund_type: refund.order_refund_type as any,
-        }),
-      );
-      const orderRefundResult = await manager.save(orderRefundEntities);
-
-      return {
-        order_id: orderId,
-        orderGasResult: {
-          identifiers: orderGasResult.map((r: any) => ({ order_gas_id: r.order_gas_id })),
-          generatedMaps: orderGasResult.map((r: any) => ({ order_gas_id: r.order_gas_id })),
-          raw: orderGasResult.map((r: any) => ({ order_gas_id: r.order_gas_id })),
-        },
-        orderCommodityResult: {
-          identifiers: orderCommodityResult.map((r: any) => ({ order_commodity_id: r.order_commodity_id })),
-          generatedMaps: orderCommodityResult.map((r: any) => ({ order_commodity_id: r.order_commodity_id })),
-          raw: orderCommodityResult.map((r: any) => ({ order_commodity_id: r.order_commodity_id })),
-        },
-        orderCylinderResult: {
-          identifiers: orderCylinderResult.map((r: any) => ({ order_cylinder_id: r.order_cylinder_id })),
-          generatedMaps: orderCylinderResult.map((r: any) => ({ order_cylinder_id: r.order_cylinder_id })),
-          raw: orderCylinderResult.map((r: any) => ({ order_cylinder_id: r.order_cylinder_id })),
-        },
-        orderCylinderMortgageResult: {
-          identifiers: orderCylinderMortgageResult.map((r: any) => ({ cis_cylinder_mortgage_id: r.cis_cylinder_mortgage_id })),
-          generatedMaps: orderCylinderMortgageResult.map((r: any) => ({ cis_cylinder_mortgage_id: r.cis_cylinder_mortgage_id })),
-          raw: orderCylinderMortgageResult.map((r: any) => ({ cis_cylinder_mortgage_id: r.cis_cylinder_mortgage_id })),
-        },
-        orderUsageFeeResult: {
-          identifiers: orderUsageFeeResult.map((r: any) => ({ order_usage_fee_id: r.order_usage_fee_id })),
-          generatedMaps: orderUsageFeeResult.map((r: any) => ({ order_usage_fee_id: r.order_usage_fee_id })),
-          raw: orderUsageFeeResult.map((r: any) => ({ order_usage_fee_id: r.order_usage_fee_id })),
-        },
-        orderRefundResult: {
-          identifiers: orderRefundResult.map((r: any) => ({ order_refund_id: r.order_refund_id })),
-          generatedMaps: orderRefundResult.map((r: any) => ({ order_refund_id: r.order_refund_id })),
-          raw: orderRefundResult.map((r: any) => ({ order_refund_id: r.order_refund_id })),
-        },
-        refreshMaterializedRelatedData: {
-          isArrearsOrder: false,
-          isChangeOweCylinderOrder: false,
-          isChangeCylinderInventory: true,
-          isChangeDailyStatisticsReport: true,
-          isUpdateCourierDailySummary: false,
-          isBillPayupWork: false,
-          isUpdatePayworkMix: false,
-        },
-      } as CreateOrderResponse;
-    });
+    const orderList = await selectOrderListModel
+      .addSelect(
+        `CASE
+            WHEN 
+              order_list.order_status = '${OrderStatusEnum.delivering}' 
+              AND (order_list.order_delivery_status = '${OrderDeliveryStatusEnum.picked}' OR 
+              order_list.order_delivery_status = '${OrderDeliveryStatusEnum.accomplish}')
+            THEN 1
+            WHEN order_list.order_status = '${OrderStatusEnum.undelivery}'
+            THEN 2
+            WHEN order_list.delivery_type = '${DeliveryTypeEnum.scheduledDelivery}'
+            THEN 3
+            ELSE 4
+        END`,
+        'delivery_status_order',
+      )
+      .orderBy('delivery_status_order', 'ASC')
+      .addOrderBy('order_list.create_time_stamp', 'DESC')
+      .getMany();
+    const rowsCount = await selectOrderListModel.getCount();
+    return {
+      data: orderList,
+      rowsCount,
+    } as any;
   }
 
-  async updateOrderPayment(request: UpdateOrderPaymentRequest): Promise<UpdateOrderPaymentResponse> {
-    const { payment_amount_infos } = request;
-    const { order_id } = payment_amount_infos;
+  public async getGasPriceList(supplierId: string, gasType?: string, kilogram?: number) {
+    const maxEffectTimeSubQuery = this.gasPriceRepository
+      .createQueryBuilder('gas_price')
+      .select('gas_cylinder.gas_id, MAX(gas_price.effect_time_stamp)')
+      .leftJoin('gas_price.gas_cylinder_info', 'gas_cylinder')
+      .distinctOn(['gas_cylinder.gas_id'])
+      .groupBy('gas_cylinder.gas_id')
+      .andWhere('gas_price.deleted = :deleted')
+      .andWhere('gas_price.effect_time_stamp <= :nowDate')
+      .andWhere('gas_cylinder.visible = :visible')
+      .andWhere('gas_cylinder.supplier_id = :supplierId');
 
-    return this.dataSource.transaction(async (manager) => {
-      const existingOrder = await manager.findOne(OrderList as any, { where: { order_id } });
-      if (!existingOrder) throw new Error(`Order with ID ${order_id} not found`);
-      const cisId: string = (existingOrder as any).cis_id;
+    if (!_.isUndefined(gasType)) {
+      maxEffectTimeSubQuery.andWhere('gas_cylinder.gas_type = :theGasType');
+    }
+    if (!_.isUndefined(kilogram)) {
+      maxEffectTimeSubQuery.andWhere('gas_cylinder.kilogram = :theKilogram');
+    }
 
-      for (const refund of payment_amount_infos.order_refund_list) {
-        if (refund.order_refund_id) {
-          await manager.update(
-            OrderRefund as any,
-            { order_refund_id: refund.order_refund_id },
-            {
-              refund_gas_kilogram: refund.refund_gas_kilogram,
-              refund_gas_type: String(refund.refund_gas_type),
-              gas_price: refund.gas_price,
-              order_refund_type: refund.order_refund_type as any,
-            },
-          );
-        } else {
-          const newRefund = manager.create(OrderRefund as any, {
-            order_id,
-            refund_gas_kilogram: refund.refund_gas_kilogram,
-            refund_gas_type: String(refund.refund_gas_type),
-            gas_price: refund.gas_price,
-            order_refund_type: refund.order_refund_type as any,
-          });
-          await manager.save(OrderRefund as any, newRefund);
-        }
-      }
+    const priceListQuery = this.gasPriceRepository
+      .createQueryBuilder('gas_price')
+      .select([
+        'gas_price.gp_id',
+        'gas_price.upload_time_stamp',
+        'gas_price.effect_time_stamp',
+        'gas_price.price',
+        'gas_price.user_id',
+        'gas_price.deleted',
+        'gas_cylinder',
+      ])
+      .leftJoin('gas_price.gas_cylinder_info', 'gas_cylinder')
+      .orderBy('gas_cylinder.kilogram', 'ASC')
+      .where('gas_price.deleted = false');
+    if (!_.isUndefined(gasType)) {
+      priceListQuery.andWhere(
+        `(gas_price.gas_id, gas_price.effect_time_stamp) In(${maxEffectTimeSubQuery.getSql()})`,
+        {
+          deleted: false,
+          nowDate: new Date().toISOString(),
+          visible: true,
+          supplierId,
+          theGasType: gasType,
+        },
+      );
+    }
+    if (!_.isUndefined(kilogram)) {
+      priceListQuery.andWhere(
+        `(gas_price.gas_id, gas_price.effect_time_stamp) In(${maxEffectTimeSubQuery.getSql()})`,
+        {
+          deleted: false,
+          nowDate: new Date().toISOString(),
+          visible: true,
+          supplierId,
+          theKilogram: kilogram,
+        },
+      );
+    }
+    if (_.isUndefined(gasType) && _.isUndefined(kilogram)) {
+      priceListQuery.andWhere(
+        `(gas_price.gas_id, gas_price.effect_time_stamp) In(${maxEffectTimeSubQuery.getSql()})`,
+        {
+          deleted: false,
+          nowDate: new Date().toISOString(),
+          visible: true,
+          supplierId,
+        },
+      );
+    }
 
-      const payupWorks: any[] = [];
-
-      if (payment_amount_infos.order_payment_amount > 0) {
-        const payupWork = manager.create(OrderPayupWork as any, {
-          pay_way: WorkPayWayEnum.cash,
-          payment_amount: payment_amount_infos.order_payment_amount,
-        });
-        const saved: any = await manager.save(payupWork as any);
-        payupWorks.push(saved);
-        await manager.save(manager.create(OrderPayup as any, {
-          order_id,
-          order_payup_work_id: saved.order_payup_work_id,
-          payment_amount: payment_amount_infos.order_payment_amount,
-          is_arrears_order: false,
-        }));
-      }
-
-      if (payment_amount_infos.cis_payment_amount > 0) {
-        const payupWork = manager.create(OrderPayupWork as any, {
-          pay_way: WorkPayWayEnum.e_wallet,
-          payment_amount: payment_amount_infos.cis_payment_amount,
-        });
-        const saved: any = await manager.save(payupWork as any);
-        payupWorks.push(saved);
-        await manager.save(manager.create(OrderPayup as any, {
-          order_id,
-          order_payup_work_id: saved.order_payup_work_id,
-          payment_amount: payment_amount_infos.cis_payment_amount,
-          is_arrears_order: false,
-        }));
-        await manager.save(manager.create(CisWallet as any, {
-          cis_id: cisId,
-          order_id,
-          payment_flow_type: PaymentFlowTypeEnum.payment,
-          money: -payment_amount_infos.cis_payment_amount,
-          create_time_stamp: new Date().toISOString(),
-        }));
-      }
-
-      if (payment_amount_infos.check_payment_amount > 0) {
-        const payupWork = manager.create(OrderPayupWork as any, {
-          pay_way: WorkPayWayEnum.check,
-          payment_amount: payment_amount_infos.check_payment_amount,
-        });
-        const saved: any = await manager.save(payupWork as any);
-        payupWorks.push(saved);
-        await manager.save(manager.create(OrderPayup as any, {
-          order_id,
-          order_payup_work_id: saved.order_payup_work_id,
-          payment_amount: payment_amount_infos.check_payment_amount,
-          is_arrears_order: false,
-        }));
-        if (payment_amount_infos.check_infos?.check_number) {
-          await manager.save(manager.create(Check as any, {
-            order_payup_work_id: saved.order_payup_work_id,
-            check_number: payment_amount_infos.check_infos.check_number,
-          }));
-        }
-      }
-
-      if (payment_amount_infos.discount !== undefined) {
-        await manager.update(OrderList as any, { order_id }, { discount: payment_amount_infos.discount });
-      }
-
-      if (payment_amount_infos.arrears_payup_amoumt) {
-        const ap = payment_amount_infos.arrears_payup_amoumt;
-        if (ap.order_payment_amount > 0) {
-          const saved: any = await manager.save(manager.create(OrderPayupWork as any, {
-            pay_way: WorkPayWayEnum.cash,
-            payment_amount: ap.order_payment_amount,
-          }));
-          await manager.save(manager.create(OrderPayup as any, {
-            order_id,
-            order_payup_work_id: saved.order_payup_work_id,
-            payment_amount: ap.order_payment_amount,
-            is_arrears_order: true,
-          }));
-        }
-        if (ap.cis_payment_amount > 0) {
-          const saved: any = await manager.save(manager.create(OrderPayupWork as any, {
-            pay_way: WorkPayWayEnum.e_wallet,
-            payment_amount: ap.cis_payment_amount,
-          }));
-          await manager.save(manager.create(OrderPayup as any, {
-            order_id,
-            order_payup_work_id: saved.order_payup_work_id,
-            payment_amount: ap.cis_payment_amount,
-            is_arrears_order: true,
-          }));
-          await manager.save(manager.create(CisWallet as any, {
-            cis_id: cisId,
-            order_id,
-            payment_flow_type: PaymentFlowTypeEnum.payment,
-            money: -ap.cis_payment_amount,
-            create_time_stamp: new Date().toISOString(),
-          }));
-        }
-        if (ap.check_payment_amount > 0) {
-          const saved: any = await manager.save(manager.create(OrderPayupWork as any, {
-            pay_way: WorkPayWayEnum.check,
-            payment_amount: ap.check_payment_amount,
-          }));
-          await manager.save(manager.create(OrderPayup as any, {
-            order_id,
-            order_payup_work_id: saved.order_payup_work_id,
-            payment_amount: ap.check_payment_amount,
-            is_arrears_order: true,
-          }));
-          if (ap.check_infos?.check_number) {
-            await manager.save(manager.create(Check as any, {
-              order_payup_work_id: saved.order_payup_work_id,
-              check_number: ap.check_infos.check_number,
-            }));
-          }
-        }
-      }
-
-      return { message: 'Successfully completed' } as UpdateOrderPaymentResponse;
-    });
+    const gasPriceList = await priceListQuery.getMany();
+    return gasPriceList as any;
   }
 
-  async generateOrderId(supplier_id: string): Promise<string> {
-    const supplier = await this.supplierRepo.findBy({ supplier_id });
-    const prefix = supplier[0]?.prefix;
-    const row = await this.orderRepo
+  public async getCisGasPriceList(
+    customerId: number,
+    supplierId: string,
+    gasType?: string,
+    kilogram?: number,
+  ) {
+    const maxEffectTimeSubQuery = this.cisGasPriceRepository
+      .createQueryBuilder('cis_gas_price')
+      .select('gas_cylinder.gas_id, MAX(cis_gas_price.effect_time_stamp)')
+      .leftJoin('cis_gas_price.gas_cylinder_info', 'gas_cylinder')
+      .leftJoin('cis_gas_price.customerInSupplier', 'customerInSupplier')
+      .groupBy('gas_cylinder.gas_id')
+      .andWhere('cis_gas_price.deleted = :deleted')
+      .andWhere('cis_gas_price.effect_time_stamp <= :nowDate')
+      .andWhere('customerInSupplier.customer_id = :customerId')
+      .andWhere('gas_cylinder.visible = :visible')
+      .andWhere('gas_cylinder.supplier_id = :supplierId');
+
+    const querySelectConditions: any = {
+      deleted: false,
+      nowDate: new Date().toISOString(),
+      visible: true,
+      supplierId,
+      customerId,
+    };
+
+    if (!_.isUndefined(gasType)) {
+      maxEffectTimeSubQuery.andWhere('gas_cylinder.gas_type = :theGasType)');
+      querySelectConditions.theGasType = gasType;
+    }
+    if (!_.isUndefined(kilogram)) {
+      maxEffectTimeSubQuery.andWhere('gas_cylinder.kilogram = :theKilogram');
+      querySelectConditions.theKilogram = kilogram;
+    }
+
+    const gasPriceList = await this.cisGasPriceRepository
+      .createQueryBuilder('cis_gas_price')
+      .select()
+      .leftJoinAndSelect('cis_gas_price.gas_cylinder_info', 'gas_cylinder')
+      .leftJoin('cis_gas_price.customerInSupplier', 'customerInSupplier')
+      .where('customerInSupplier.customer_id = :customerId', { customerId })
+      .andWhere('customerInSupplier.supplier_id = :supplierId', { supplierId })
+      .andWhere(
+        `(cis_gas_price.gas_id, cis_gas_price.effect_time_stamp) In(${maxEffectTimeSubQuery.getSql()})`,
+        querySelectConditions,
+      )
+      .andWhere('cis_gas_price.deleted = false')
+      .orderBy('gas_cylinder.kilogram', 'ASC')
+      .getMany();
+
+    return gasPriceList as any;
+  }
+
+  public selectOrderModel(columnList?: any) {
+    if (_.isUndefined(columnList) || columnList?.length === 0) {
+      return this.orderRepository.createQueryBuilder('order_list').select();
+    }
+    return this.orderRepository.createQueryBuilder('order_list').select(columnList);
+  }
+
+  public async generateOrderId(supplierId: string) {
+    const supplierResult = await this.supplierRepository.findBy({ supplier_id: supplierId });
+    const checkOrderId = await this.orderRepository
       .createQueryBuilder('order_list')
       .select("MAX(split_part(order_list.order_id, '_', 2)::int)", 'id_second_text')
-      .where('order_list.order_id like :prefix', { prefix: `%${prefix}O_%` })
+      .where('order_list.order_id like :prefix', { prefix: `%${supplierResult[0]!.prefix}O_%` })
       .getRawOne();
-    if (!row || row.id_second_text == null) return `${prefix}O_1`;
-    return `${prefix}O_${row.id_second_text + 1}`;
+
+    if (_.isUndefined(checkOrderId)) {
+      return `${supplierResult[0]!.prefix}O_1`;
+    }
+    return `${supplierResult[0]!.prefix}O_${(checkOrderId as any).id_second_text + 1}`;
+  }
+
+  public async createOrder(
+    orderInfo: Partial<OrderList>,
+    orderGasList: Array<CreateOrderGasInterface>,
+    orderCommodityList: Partial<OrderCommodity>[],
+    orderUsageFeeList: Partial<OrderUsageFee>[],
+    customerDeliveryList: Partial<CustomerDelivery>[],
+    saveCustomerInfoInOrder?: Partial<Customer>,
+    cisInfo?: Partial<CustomerInSuppliers>,
+  ) {
+    const cb = async (queryRunner: QueryRunner) => {
+      const promise1Result = await Promise.all([
+        queryRunner.manager.insert(OrderList, orderInfo),
+        saveCustomerInfoInOrder ? queryRunner.manager.save(Customer, saveCustomerInfoInOrder) : null,
+        cisInfo ? queryRunner.manager.save(CustomerInSuppliers, cisInfo) : null,
+        queryRunner.manager.save(CustomerDelivery, customerDeliveryList),
+      ]);
+      const orderResult: any = promise1Result[0];
+      const customerDeliveryResult: any = promise1Result[3];
+
+      const insertOrderGasList: Partial<OrderGas>[] = orderGasList.map((item) => {
+        if ((item as any).deliveryInfo) {
+          const findDelivery = customerDeliveryResult.find(
+            (delivery) =>
+              delivery.delivery_location === (item as any).deliveryInfo!.deliveryLocation &&
+              delivery.usage_name === (item as any).deliveryInfo!.usageName &&
+              delivery.floor === (item as any).deliveryInfo!.floor &&
+              delivery.is_elevator === (item as any).deliveryInfo!.isElevator,
+          );
+          return {
+            gp_id: (item as any).gpId,
+            cis_gp_id: (item as any).cisGpId,
+            order_id: orderResult.identifiers[0]!.order_id,
+            numbers_of_cylinder: (item as any).numberOfCylinder,
+            customer_delivery_id: findDelivery!.customer_delivery_id,
+          } as any;
+        }
+        return {
+          gp_id: (item as any).gpId,
+          cis_gp_id: (item as any).cisGpId,
+          order_id: orderResult.identifiers[0]!.order_id,
+          numbers_of_cylinder: (item as any).numberOfCylinder,
+        } as any;
+      });
+
+      const promise2Result = await Promise.all([
+        queryRunner.manager.insert(OrderGas, insertOrderGasList),
+        queryRunner.manager.insert(
+          OrderCommodity,
+          orderCommodityList.map((item) => ({
+            ...item,
+            order_id: orderResult.identifiers[0]!.order_id,
+          })),
+        ),
+        queryRunner.manager.insert(
+          OrderUsageFee,
+          orderUsageFeeList.map((item) => ({
+            ...item,
+            order_id: orderResult.identifiers[0]!.order_id,
+          })),
+        ),
+      ]);
+      const orderGasResult = promise2Result[0];
+      const orderCommodityResult = promise2Result[1];
+      const orderCylinderUsageFeeResult = promise2Result[2];
+
+      return {
+        orderResult,
+        orderGasResult,
+        orderCommodityResult,
+        orderCylinderUsageFeeResult,
+      } as any;
+    };
+
+    const result = await typeormHelper.databaseTransaction(cb);
+    return result as any;
   }
 }
 

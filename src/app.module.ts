@@ -6,12 +6,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import databaseConfig from './config/database.config';
 import s3Config from './config/s3.config';
-import { OrderModule } from './modules/order/order.module';
 import { FileModule } from './modules/file/file.module';
 import { CommodityModule } from './modules/commodity/commodity.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { RegisterModule } from './modules/register/register.module';
+import { OrderModule } from './modules/order/order.module';
 import {
   AddressBinding,
   BillOfSaleWork,
@@ -194,12 +194,12 @@ import {
       },
     }),
     HealthModule,
-    OrderModule,
     FileModule,
     CommodityModule,
     CustomerModule,
     DeliveryModule,
     RegisterModule,
+    OrderModule,
   ],
   controllers: [AppController],
   providers: [AppService],

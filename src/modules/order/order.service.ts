@@ -1,121 +1,257 @@
 import { Injectable } from '@nestjs/common';
+import { httpStatus } from '@artifact/aurora-api-core';
 import {
-  CreateOrderRequest,
-  CreateOrderResponse,
-  GetOrderListRequest,
-  GetOrderListResponse,
-  OrderResponse,
-  UpdateOrderPaymentRequest,
-  UpdateOrderPaymentResponse,
-} from './dto/order.dto';
-import { OrderModel } from './order.model';
-import { OrderRepository } from './order.repository';
-import { OrderList } from '@artifact/lpg-api-service/dist/database/entities/order_list';
+  CisGasPrice,
+  Customer,
+  CustomerDelivery,
+  DeliveryTypeEnum,
+  GasPrice,
+  OrderCommodity,
+  OrderDeliveryStatusEnum,
+  OrderList,
+  OrderStatusEnum,
+  OrderUsageFee,
+  ServiceBase,
+} from '@artifact/lpg-api-service';
+import { CustomerModel } from '../customer/customer.model.js';
+import { DeliveryModel } from '../delivery/delivery.model.js';
+import {
+  CreateOrderCommodityInterface,
+  CreateOrderGasInterface,
+  CreateOrderInfoInterface,
+  CreateOrderUsageFeeInterface,
+  SaveCustomerInfoInOrderInterface,
+} from './interface/create-order.interface.js';
+import { OrderListStatus, OrderModel } from './order.model.js';
 
 @Injectable()
-export class OrderService {
-  constructor(private readonly model: OrderModel) {}
-
-  async getOrderInfo(order_id: string): Promise<OrderResponse> {
-    const orderInfo = await this.model.getOrderInfo(order_id);
-    if (!orderInfo) throw new Error('Order not found');
-
-    const totalPrice = this.calculateTotalPrice(orderInfo as any);
-    const arrears = orderInfo.customerInSupplier?.init_arrears || 0;
-
-    return { orderInfos: orderInfo, arrears, totalPrice } as OrderResponse;
+export class OrderService extends ServiceBase {
+  constructor(
+    private readonly orderModel: OrderModel,
+    private readonly deliveryModel: DeliveryModel,
+    private readonly customerModel: CustomerModel,
+  ) {
+    super();
   }
 
-  private calculateTotalPrice(orderInfo: any): number {
-    let total = 0;
-    if (orderInfo.order_gas_list) {
-      orderInfo.order_gas_list.forEach((gas: any) => {
-        if (gas.cis_gas_price_info?.price && gas.numbers_of_cylinder) {
-          total += gas.cis_gas_price_info.price * gas.numbers_of_cylinder;
-        }
-      });
-    }
-    if (orderInfo.order_commodity_list) {
-      orderInfo.order_commodity_list.forEach((commodity: any) => {
-        if (commodity.commodity_price_info?.price && commodity.numbers_of_commodity) {
-          total += commodity.commodity_price_info.price * commodity.numbers_of_commodity;
-        }
-      });
-    }
-    if (orderInfo.order_cylinder_list) {
-      orderInfo.order_cylinder_list.forEach((cylinder: any) => {
-        if (cylinder.cylinder_price_info?.price && cylinder.numbers_of_cylinder) {
-          total += cylinder.cylinder_price_info.price * cylinder.numbers_of_cylinder;
-        }
-      });
-    }
-    if (orderInfo.order_usage_fee_list) {
-      orderInfo.order_usage_fee_list.forEach((fee: any) => {
-        if (fee.money) total += fee.money;
-      });
-    }
-    if (orderInfo.cis_cylinder_mortgage_list) {
-      orderInfo.cis_cylinder_mortgage_list.forEach((mortgage: any) => {
-        if (mortgage.money && mortgage.numbers_of_cylinder) {
-          total += mortgage.money * mortgage.numbers_of_cylinder;
-        }
-      });
-    }
-    if (orderInfo.order_refund_list) {
-      orderInfo.order_refund_list.forEach((refund: any) => {
-        if (refund.gas_price && refund.refund_gas_kilogram) {
-          total -= refund.gas_price * refund.refund_gas_kilogram;
-        }
-      });
-    }
-    if (orderInfo.discount) total -= orderInfo.discount;
-    if (orderInfo.gas_discount) total -= orderInfo.gas_discount;
-    return Math.max(0, total);
+  public async getOrderInfo(orderId: string) {
+    const orderInfo = await this.orderModel.getOrderInfo(orderId);
+    const fullOrderInfo = orderInfo ? this.returnFullOrderList([orderInfo])[0] : null;
+    return this.formatMessage(fullOrderInfo, httpStatus.OK);
   }
 
-  async getOrderList(request: GetOrderListRequest): Promise<GetOrderListResponse> {
-    const orderList = await this.model.getOrderList(request);
-    return { orderList, rowsCount: orderList.length };
+  private returnFullOrderList(orderList: OrderList[]) {
+    return orderList.map((item) => {
+      let deliveryStatus = OrderListStatus.accomplish;
+      if (item.order_status === OrderStatusEnum.undelivery) {
+        deliveryStatus = OrderListStatus.waiting;
+      } else if (
+        item.order_status === OrderStatusEnum.delivering &&
+        (item.order_delivery_status === OrderDeliveryStatusEnum.picked ||
+          item.order_delivery_status === OrderDeliveryStatusEnum.accomplish)
+      ) {
+        deliveryStatus = OrderListStatus.delivering;
+      } else if (item.delivery_type === DeliveryTypeEnum.scheduledDelivery) {
+        deliveryStatus = OrderListStatus.scheduled;
+      }
+      return {
+        ...item,
+        address_binding_info: {
+          ...item.address_binding_info,
+          address: (item.address_binding_info as any).customerAddressInfo
+            ? (item.address_binding_info as any).customerAddressInfo.address
+            : undefined,
+        },
+        deliveryStatus,
+      } as any;
+    });
   }
 
-  async createOrder(request: CreateOrderRequest, supplier_id: string): Promise<CreateOrderResponse> {
-    return this.model.createOrder(request, supplier_id);
+  public async getOrderList(
+    page: number,
+    size: number,
+    customerId: number,
+    supplierId: string,
+    isAccomplished: boolean,
+  ) {
+    const customerInfo = await this.customerModel.findCustomerInSuppliers(customerId, supplierId);
+
+    const orderList = await this.orderModel.getOrderList(
+      page,
+      size,
+      customerId,
+      customerInfo!.supplier_id,
+      isAccomplished,
+    );
+    const fullOrderList = this.returnFullOrderList(orderList.data as any);
+    return this.formatMessage(
+      {
+        orderList: fullOrderList,
+        rowsCount: (orderList as any).rowsCount,
+      },
+      httpStatus.OK,
+    );
   }
 
-  async updateOrderPayment(request: UpdateOrderPaymentRequest): Promise<UpdateOrderPaymentResponse> {
-    return this.model.updateOrderPayment(request);
+  private mergeGasPriceList(gasPriceList: GasPrice[], cisGasPriceList: CisGasPrice[]) {
+    const gasPriceListMap = new Map<string, GasPrice | CisGasPrice | { gp_id: number | null; cis_gp_id: number | null }>();
+    gasPriceList.forEach((item) => {
+      gasPriceListMap.set(`${item.gas_cylinder_info.gas_type}-${item.gas_cylinder_info.kilogram}`, {
+        ...(item as any),
+        gp_id: (item as any).gp_id || null,
+        cis_gp_id: null,
+      });
+    });
+    cisGasPriceList.forEach((item) => {
+      gasPriceListMap.set(`${item.gas_cylinder_info.gas_type}-${item.gas_cylinder_info.kilogram}`, {
+        ...(item as any),
+        gp_id: null,
+        cis_gp_id: (item as any).cis_gp_id,
+      });
+    });
+    return Array.from(gasPriceListMap.values());
+  }
+
+  public async getGasPriceList(
+    customerId: number,
+    supplierId?: string,
+    gasType?: string,
+    kilogram?: number,
+  ) {
+    const customerInfo = await this.customerModel.findCustomerInSuppliers(customerId, supplierId);
+    const gasPriceList = await this.orderModel.getGasPriceList(
+      customerInfo!.supplier_id,
+      gasType,
+      kilogram,
+    );
+    const cisGasPriceList = await this.orderModel.getCisGasPriceList(
+      customerId,
+      customerInfo!.supplier_id,
+      gasType,
+      kilogram,
+    );
+    const mergeGasPriceList = this.mergeGasPriceList(gasPriceList as any, cisGasPriceList as any);
+    return this.formatMessage(mergeGasPriceList, httpStatus.OK);
+  }
+
+  public async createOrder(
+    orderInfo: CreateOrderInfoInterface,
+    orderGasList: Array<CreateOrderGasInterface>,
+    orderCommodityList: Array<CreateOrderCommodityInterface>,
+    orderUsageFeeList: Array<CreateOrderUsageFeeInterface>,
+    customerId: number,
+    supplierId?: string,
+    customerInfoInOrder?: SaveCustomerInfoInOrderInterface,
+  ) {
+    const customerInfo = await this.customerModel.findCustomerInSuppliers(customerId, supplierId);
+
+    const promiseResult = await Promise.all([
+      this.orderModel.generateOrderId(customerInfo!.supplier_id),
+      this.deliveryModel.findAddressBindingInfo(orderInfo.customerAddressId),
+    ]);
+    const orderId = promiseResult[0] as string;
+    const addressBinding: any = promiseResult[1];
+
+    if (!addressBinding) {
+      return this.formatErrorMessage(
+        1040,
+        'Address binding not found or address deleted.',
+        httpStatus.BAD_REQUEST,
+      );
+    }
+
+    const insertOrderInfo: Partial<OrderList> = {
+      order_id: orderId,
+      cis_id: (customerInfo as any)!.cis_id,
+      customer_phone: (orderInfo as any).customerPhone,
+      contact_phone: (orderInfo as any).contactPhone,
+      note: (orderInfo as any).customerNote,
+      customer_note: (orderInfo as any).customerNote,
+      order_status: OrderStatusEnum.undelivery,
+      order_delivery_status: OrderDeliveryStatusEnum.unpick,
+      delivery_type: (orderInfo as any).deliveryType,
+      time_slot: (orderInfo as any).timeSlot,
+      tax_id_number: (orderInfo as any).taxIdNumber,
+      address_id: (addressBinding as any).addressId,
+      address_binding_id: (addressBinding as any).addressBindingId,
+      discount: 0,
+      gas_discount: (orderInfo as any).gasDiscount,
+      delivery_time_stamp: new Date().toISOString(),
+      create_time_stamp: new Date().toISOString(),
+    } as any;
+
+    const insertCustomerDeliveryList: Partial<CustomerDelivery>[] = [];
+    (orderGasList || []).forEach((item) => {
+      if ((item as any).deliveryInfo) {
+        const findDuplicateDelivery = insertCustomerDeliveryList.find(
+          (delivery) =>
+            delivery.delivery_location === (item as any).deliveryInfo!.deliveryLocation &&
+            delivery.usage_name === (item as any).deliveryInfo!.usageName &&
+            delivery.floor === (item as any).deliveryInfo!.floor &&
+            delivery.is_elevator === (item as any).deliveryInfo!.isElevator,
+        );
+        if (!findDuplicateDelivery) {
+          insertCustomerDeliveryList.push({
+            customer_delivery_id: (item as any).deliveryInfo.customerDeliveryId,
+            customer_address_id: (item as any).deliveryInfo.customerAddressId,
+            delivery_location: (item as any).deliveryInfo.deliveryLocation,
+            usage_name: (item as any).deliveryInfo.usageName,
+            floor: (item as any).deliveryInfo.floor,
+            is_elevator: (item as any).deliveryInfo.isElevator,
+          });
+        }
+      }
+    });
+
+    const insertOrderCommodityList: Partial<OrderCommodity>[] = (orderCommodityList || []).map(
+      (item) => ({
+        commodity_price_id: (item as any).commodityPriceId,
+        numbers_of_commodity: (item as any).numberOfCommodity,
+        order_id: orderId,
+      }),
+    );
+    const insertOrderUsageFeeList: Partial<OrderUsageFee>[] = (orderUsageFeeList || []).map(
+      (item) => ({
+        number_of_records: (item as any).numberOfRecords,
+        money: (item as any).money,
+        order_id: orderId,
+        create_time_stamp: new Date().toISOString(),
+      }),
+    );
+
+    const saveCustomerInfoInOrder: Partial<Customer> = {
+      customer_id: customerId,
+      carrier_type: customerInfoInOrder?.carrierType,
+      invoice_carrier: customerInfoInOrder?.invoiceCarrier,
+    } as any;
+
+    let saveCisInfo: any;
+    if (customerInfoInOrder?.carrierType && customerInfoInOrder?.invoiceCarrier) {
+      saveCisInfo = {
+        cis_id: (customerInfo as any)!.cis_id,
+        carrier_type: customerInfoInOrder.carrierType,
+        invoice_carrier: customerInfoInOrder.invoiceCarrier,
+      } as any;
+    }
+
+    const orderResult = await this.orderModel.createOrder(
+      insertOrderInfo,
+      orderGasList,
+      insertOrderCommodityList,
+      insertOrderUsageFeeList,
+      insertCustomerDeliveryList,
+      saveCustomerInfoInOrder,
+      saveCisInfo,
+    );
+    if ((orderResult as any).error === true) {
+      return this.formatErrorMessage(
+        1039,
+        'Something wrong with database transaction.',
+        httpStatus.BAD_REQUEST,
+      );
+    }
+    return this.formatMessage((orderResult as any).transaction_data, httpStatus.OK);
   }
 }
 
-@Injectable()
-export class Order2Service {
-  constructor(private readonly repository: OrderRepository) {}
-
-  public async getOrderInfo(order_id: string): Promise<OrderResponse> {
-    const orderInfo = await this.repository.getOrderInfo(order_id);
-    if (!orderInfo) throw new Error('Order not found');
-
-    const totalPrice = this.mockCalculateTotalPrice(orderInfo as any);
-    const arrears = orderInfo.customerInSupplier?.init_arrears || 0;
-
-    return { orderInfos: orderInfo, arrears, totalPrice } as OrderResponse;
-  }
-
-  private mockCalculateTotalPrice(orderInfo: any): number {
-    return 1000;
-  }
-
-  public async getOrderListById(order_id: string): Promise<OrderList[]> {
-    return this.repository.getOrderListById(order_id);
-  }
-
-  public async getOrderList(request: GetOrderListRequest): Promise<GetOrderListResponse> {
-    const orderList = await this.repository.getOrderList(request);
-    return { orderList, rowsCount: orderList.length };
-  }
-
-  public async createOrder(request: CreateOrderRequest, supplier_id: string): Promise<CreateOrderResponse> {
-    return this.repository.createOrder(request, supplier_id);
-  }
-}
 
