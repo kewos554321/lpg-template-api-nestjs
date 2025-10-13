@@ -1,33 +1,36 @@
-import { Controller, Get, Post, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { plainToClass } from 'class-transformer';
 import { CustomerOrSupplierInfoResDto, SupplierInfoResDto } from './dto/register-res.dto';
 import { RegisterService } from './register.service';
-
+import { ControllerBase, httpStatus } from '@artifact/aurora-api-core';
+import _ from 'lodash';
 @ApiTags('Register')
 @Controller('register')
-export class RegisterController {
-  constructor(private readonly registerService: RegisterService) {}
+export class RegisterController extends ControllerBase{
+  constructor(private readonly registerService: RegisterService) {
+    super();
+  }
 
   @Get('search/check')
   @ApiOperation({ summary: 'Get customer or supplier by code' })
   @ApiQuery({ name: 'code', required: true })
   async getCustomerOrSupplierByCode(@Query('code') code?: string) {
-    if (!code) {
-      throw new BadRequestException('Please check your query.');
+    if (_.isString(code)) {
+      return this.formatResponse('Please check your query.', httpStatus.BAD_REQUEST);
     }
     const result = await this.registerService.getCustomerOrSupplierByCode(code);
-    const data = plainToClass(CustomerOrSupplierInfoResDto, result.data, {
+    const customerOrSupplierInfoResDto = plainToClass(CustomerOrSupplierInfoResDto, result.data, {
       excludeExtraneousValues: true,
     });
-    return data;
+    return this.formatResponse(customerOrSupplierInfoResDto, httpStatus.OK);
   }
 
   @Get('search/list-city')
   @ApiOperation({ summary: 'Get supplier city list' })
   async getSupplierCityList() {
     const result = await this.registerService.getSupplierCityList();
-    return result.data;
+    return this.formatResponse(result.data, result.status);
   }
 
   @Get('search/list')
@@ -36,20 +39,20 @@ export class RegisterController {
   @ApiQuery({ name: 'searchValue', required: false })
   async getSupplierList(@Query('city') city?: string, @Query('searchValue') searchValue?: string) {
     if (!city) {
-      throw new BadRequestException('Please check your param.');
+      return this.formatResponse('Please check your param.', httpStatus.BAD_REQUEST);
     }
     const result = await this.registerService.getSupplierList(city, searchValue || '');
-    const data = result.data.map((item: any) =>
+    const supplierInfoResDto = result.data.map((item: any) =>
       plainToClass(SupplierInfoResDto, item, { excludeExtraneousValues: true }),
     );
-    return data;
+    return this.formatResponse(supplierInfoResDto, httpStatus.OK);
   }
 
   @Post('login')
   @ApiOperation({ summary: 'Login (issue JWT)' })
   async loginAuth() {
     const result = await this.registerService.loginAuth();
-    return result.data;
+    return this.formatResponse(result.data, result.status);
   }
 }
 
