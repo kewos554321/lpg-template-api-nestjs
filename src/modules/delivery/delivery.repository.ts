@@ -6,7 +6,7 @@ import { CustomerAddress, CustomerDelivery } from '@artifact/lpg-api-service';
 import { AddressBinding } from '@artifact/lpg-api-service/dist/database/entities/address_binding';
 
 @Injectable()
-export class DeliveryModel {
+export class DeliveryRepository {
   constructor(
     @InjectRepository(CustomerAddress)
     private readonly customerAddressRepository: Repository<CustomerAddress>,
@@ -79,3 +79,5 @@ export class DeliveryModel {
     return result;
   }
 }
+
+

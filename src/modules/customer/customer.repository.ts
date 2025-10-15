@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { CustomerInSuppliers, CustomerStatusEnum } from '@artifact/lpg-api-service';
 
 @Injectable()
-export class CustomerModel {
+export class CustomerRepository {
   constructor(
     @InjectRepository(CustomerInSuppliers) private readonly customerInSuppliersRepository: Repository<CustomerInSuppliers>,
   ) {}
@@ -29,3 +29,5 @@ export class CustomerModel {
     return customerResult;
   }
 }
+
+

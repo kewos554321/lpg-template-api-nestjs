@@ -13,8 +13,8 @@ import {
   OrderUsageFee,
   ServiceBase,
 } from '@artifact/lpg-api-service';
-import { CustomerModel } from '../customer/customer.model.js';
-import { DeliveryModel } from '../delivery/delivery.model.js';
+import { CustomerRepository } from '../customer/customer.repository.js';
+import { DeliveryRepository } from '../delivery/delivery.repository.js';
 import {
   CreateOrderCommodityInterface,
   CreateOrderGasInterface,
@@ -28,8 +28,8 @@ import { OrderListStatus, OrderModel } from './order.model.js';
 export class OrderService extends ServiceBase {
   constructor(
     private readonly orderModel: OrderModel,
-    private readonly deliveryModel: DeliveryModel,
-    private readonly customerModel: CustomerModel,
+    private readonly deliveryModel: DeliveryRepository,
+    private readonly customerModel: CustomerRepository,
   ) {
     super();
   }

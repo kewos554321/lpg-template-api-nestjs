@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CustomerController } from './customer.controller';
 import { CustomerService } from './customer.service';
-import { CustomerModel } from './customer.model';
+import { CustomerRepository } from './customer.repository';
 import { CustomerInSuppliers, Customer, CustomerAddress } from '@artifact/lpg-api-service';
 
 @Module({
@@ -14,7 +14,7 @@ import { CustomerInSuppliers, Customer, CustomerAddress } from '@artifact/lpg-ap
     ]),
   ],
   controllers: [CustomerController],
-  providers: [CustomerService, CustomerModel],
-  exports: [CustomerService, CustomerModel],
+  providers: [CustomerService, CustomerRepository],
+  exports: [CustomerService, CustomerRepository],
 })
 export class CustomerModule {}
