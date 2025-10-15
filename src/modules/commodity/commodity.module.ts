@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommodityController } from './commodity.controller';
 import { CommodityService } from './commodity.service';
-import { CommodityModel } from './commodity.model';
+import { CommodityRepository } from './commodity.repository';
 import { Commodity, CommodityPrice } from '@artifact/lpg-api-service';
 import { CustomerModule } from '../customer/customer.module';
 
@@ -15,7 +15,7 @@ import { CustomerModule } from '../customer/customer.module';
     CustomerModule,
   ],
   controllers: [CommodityController],
-  providers: [CommodityService, CommodityModel],
+  providers: [CommodityService, CommodityRepository],
   exports: [CommodityService],
 })
 export class CommodityModule {}

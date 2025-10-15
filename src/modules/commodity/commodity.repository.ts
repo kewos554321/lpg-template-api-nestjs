@@ -5,7 +5,7 @@ import { Commodity, CommodityPrice } from '@artifact/lpg-api-service';
 import _ from 'lodash';
 
 @Injectable()
-export class CommodityModel {
+export class CommodityRepository {
   constructor(
     @InjectRepository(Commodity) private readonly commodityRepository: Repository<Commodity>,
     @InjectRepository(CommodityPrice) private readonly commodityPriceRepository: Repository<CommodityPrice>,
@@ -58,3 +58,5 @@ export class CommodityModel {
     return result;
   }
 }
+
+

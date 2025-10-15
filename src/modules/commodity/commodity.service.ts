@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CommodityModel } from './commodity.model';
+import { CommodityRepository } from './commodity.repository';
 import { CustomerModel } from '../customer/customer.model';
 import { ServiceBase } from '@artifact/lpg-api-service';
 import { httpStatus } from '@artifact/aurora-api-core';
@@ -7,7 +7,7 @@ import { httpStatus } from '@artifact/aurora-api-core';
 @Injectable()
 export class CommodityService extends ServiceBase {
   constructor(
-    private readonly commodityModel: CommodityModel,
+    private readonly commodityRepository: CommodityRepository,
     private readonly customerModel: CustomerModel,
   ) {
     super();
@@ -15,7 +15,7 @@ export class CommodityService extends ServiceBase {
 
   async getCommodityList(customerId: number, supplierId?: string, commodityType?: string) {
     const customerInfo = await this.customerModel.findCustomerInSuppliers(customerId, supplierId);
-    const result = await this.commodityModel.getCommodityList(
+    const result = await this.commodityRepository.getCommodityList(
       customerInfo?.supplier_id || supplierId || 'GS_1',
       commodityType
     );
@@ -24,7 +24,7 @@ export class CommodityService extends ServiceBase {
 
   async getCommodityTypes(customerId: number, supplierId?: string) {
     const customerInfo = await this.customerModel.findCustomerInSuppliers(customerId, supplierId);
-    const result = await this.commodityModel.getCommodityTypes(
+    const result = await this.commodityRepository.getCommodityTypes(
       customerInfo?.supplier_id || supplierId || 'GS_1'
     );
     return this.formatMessage(result, httpStatus.OK);
