@@ -22,12 +22,12 @@ import {
   CreateOrderUsageFeeInterface,
   SaveCustomerInfoInOrderInterface,
 } from './interface/create-order.interface.js';
-import { OrderListStatus, OrderModel } from './order.model.js';
+import { OrderListStatus, OrderRepository } from './order.repository.js';
 
 @Injectable()
 export class OrderService extends ServiceBase {
   constructor(
-    private readonly orderModel: OrderModel,
+    private readonly orderModel: OrderRepository,
     private readonly deliveryModel: DeliveryRepository,
     private readonly customerModel: CustomerRepository,
   ) {

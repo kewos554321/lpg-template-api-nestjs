@@ -19,7 +19,6 @@ import {
   typeormHelper,
 } from '@artifact/lpg-api-service';
 import _ from 'lodash';
-
 import { CreateOrderGasInterface } from './interface/create-order.interface.js';
 
 export enum OrderListStatus {
@@ -30,7 +29,7 @@ export enum OrderListStatus {
 }
 
 @Injectable()
-export class OrderModel {
+export class OrderRepository {
   constructor(
     @InjectRepository(OrderList) private readonly orderRepository: Repository<OrderList>,
     @InjectRepository(Supplier) private readonly supplierRepository: Repository<Supplier>,
@@ -83,8 +82,7 @@ export class OrderModel {
       .leftJoinAndSelect('order_list.customerInSupplier', 'customerInSupplier')
       .leftJoinAndSelect('customerInSupplier.customer_info', 'customer')
       .leftJoinAndSelect('order_list.order_payup_list', 'order_payup_list')
-      .leftJoinAndSelect('order_payup_list.order_payup_work_info', 'order_payup_work')
-      .leftJoinAndSelect('order_payup_work.bill_of_sale_work_info', 'bill_of_sale_work');
+      .leftJoinAndSelect('order_payup_list.order_payup_work_info', 'order_payup_work');
 
     return orderModel;
   }

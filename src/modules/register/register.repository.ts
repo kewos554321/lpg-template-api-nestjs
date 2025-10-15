@@ -4,7 +4,7 @@ import { Repository, Brackets } from 'typeorm';
 import { CustomerInSuppliers, Supplier } from '@artifact/lpg-api-service';
 
 @Injectable()
-export class RegisterModel {
+export class RegisterRepository {
   constructor(
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,

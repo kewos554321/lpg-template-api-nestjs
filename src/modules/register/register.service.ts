@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { httpStatus } from '@artifact/aurora-api-core';
-import { RegisterModel } from './register.model';
+import { RegisterRepository } from './register.repository';
 import { ServiceBase, tokenHelper } from '@artifact/lpg-api-service';
 import _ from 'lodash';
 
 @Injectable()
 export class RegisterService extends ServiceBase {
-  constructor(private readonly registerModel: RegisterModel) {
+  constructor(private readonly registerRepository: RegisterRepository) {
     super();
   }
 
   public async getCustomerOrSupplierByCode(code: string) {
-    const existedCustomerInSupplier = await this.registerModel.getCusSupplierInfosByCode(code);
+    const existedCustomerInSupplier = await this.registerRepository.getCusSupplierInfosByCode(code);
     if (_.isEmpty(existedCustomerInSupplier)) {
-      const existedSupplier = await this.registerModel.getSupplierInfoOrList({
+      const existedSupplier = await this.registerRepository.getSupplierInfoOrList({
         register_number: code,
       } as any);
       if (_.isEmpty(existedSupplier)) {
@@ -33,12 +33,12 @@ export class RegisterService extends ServiceBase {
   }
 
   public async getSupplierCityList() {
-    const result = await this.registerModel.getSupplierCityList();
+    const result = await this.registerRepository.getSupplierCityList();
     return this.formatMessage(result, httpStatus.OK);
   }
 
   public async getSupplierList(city: string, searchValue: string) {
-    const result = await this.registerModel.getSupplierList(city, searchValue);
+    const result = await this.registerRepository.getSupplierList(city, searchValue);
     return this.formatMessage(result, httpStatus.OK);
   }
 
