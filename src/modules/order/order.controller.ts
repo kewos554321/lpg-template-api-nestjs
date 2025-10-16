@@ -7,22 +7,18 @@ import { OrderInfoResDto } from './dto/order-info-res.dto.js';
 import { OrderListDataResDto } from './dto/order-list-res.dto.js';
 import { GasPriceListResDto } from './dto/gas-price-res.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CommodityService } from '../commodity/commodity.service';
+import { CommodityListResDto } from '../commodity/dto/commodity-list-res.dto';
 
 @ApiTags('Order')
 @Controller('order')
 export class OrderController extends ControllerBase {
-  constructor(private readonly orderService: OrderService, private readonly validParam: ValidParam) {
+  constructor(
+    private readonly orderService: OrderService,
+    private readonly validParam: ValidParam,
+    private readonly commodityService: CommodityService,
+  ) {
     super();
-  }
-
-  @Get(':orderId')
-  @ApiOperation({ summary: 'Get order info' })
-  async getOrderInfo(@Param('orderId') orderId: string) {
-    const result = await this.orderService.getOrderInfo(orderId);
-    const orderInfoResDto = plainToClass(OrderInfoResDto, result.data, {
-      excludeExtraneousValues: true,
-    });
-    return this.formatResponse(orderInfoResDto, result.status);
   }
 
   @Get('search/unaccomplished')
@@ -117,6 +113,43 @@ export class OrderController extends ControllerBase {
       customerInfoInOrder,
     );
     return this.formatResponse(result.data, result.status);
+  }
+
+  @Get('commodity')
+  @ApiOperation({ summary: 'Get commodity list' })
+  @ApiQuery({ name: 'commodityType', required: false, description: 'Commodity type filter' })
+  @ApiQuery({ name: 'supplierId', required: false, description: 'Supplier ID filter' })
+  async getCommodityList(
+    @CurrentUser() user: any,
+    @Query('commodityType') commodityType?: string,
+    @Query('supplierId') supplierId?: string,
+  ) {
+    const customerId = Number(user.customer_id);
+    const result = await this.commodityService.getCommodityList(customerId, supplierId, commodityType);
+    const list = plainToClass(CommodityListResDto, result.data, { excludeExtraneousValues: true });
+    return this.formatResponse(list, result.status);
+  }
+
+  @Get('commodity/type')
+  @ApiOperation({ summary: 'Get commodity types' })
+  @ApiQuery({ name: 'supplierId', required: false, description: 'Supplier ID filter' })
+  async getCommodityTypes(
+    @CurrentUser() user: any,
+    @Query('supplierId') supplierId?: string,
+  ) {
+    const customerId = Number(user.customer_id);
+    const result = await this.commodityService.getCommodityTypes(customerId, supplierId);
+    return this.formatResponse(result.data, result.status);
+  }
+
+  @Get(':orderId') 
+  @ApiOperation({ summary: 'Get order info' })
+  async getOrderInfo(@Param('orderId') orderId: string) {
+    const result = await this.orderService.getOrderInfo(orderId);
+    const orderInfoResDto = plainToClass(OrderInfoResDto, result.data, {
+      excludeExtraneousValues: true,
+    });
+    return this.formatResponse(orderInfoResDto, result.status);
   }
 }
 

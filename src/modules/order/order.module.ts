@@ -17,6 +17,7 @@ import { OrderService } from './order.service.js';
 import { OrderRepository } from './order.repository.js';
 import { DeliveryModule } from '../delivery/delivery.module';
 import { CustomerModule } from '../customer/customer.module';
+import { CommodityModule } from '../commodity/commodity.module';
 import { AddressBinding } from '@artifact/lpg-api-service/dist/database/entities/address_binding';
 import { ValidParam } from '@artifact/aurora-api-core';
 
@@ -37,6 +38,7 @@ import { ValidParam } from '@artifact/aurora-api-core';
     ]),
     DeliveryModule,
     CustomerModule,
+    CommodityModule,
   ],
   controllers: [OrderController],
   providers: [OrderService, OrderRepository, ValidParam],
