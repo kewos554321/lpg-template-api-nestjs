@@ -6,12 +6,15 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import databaseConfig from './config/database.config';
 import s3Config from './config/s3.config';
+import lineAuthConfig from './config/line-auth.config';
 import { FileModule } from './modules/file/file.module';
 import { CommodityModule } from './modules/commodity/commodity.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { RegisterModule } from './modules/register/register.module';
 import { OrderModule } from './modules/order/order.module';
+import { LineAuthModule } from './modules/line-auth/line-auth.module';
+import { LiffModule } from './modules/liff/liff.module';
 import {
   AddressBinding,
   BillOfSaleWork,
@@ -95,7 +98,7 @@ import {
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig, s3Config] }),
+    ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig, s3Config, lineAuthConfig] }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (cs: ConfigService) => {
@@ -200,6 +203,8 @@ import {
     DeliveryModule,
     RegisterModule,
     OrderModule,
+    LineAuthModule,
+    LiffModule,
   ],
   controllers: [AppController],
   providers: [AppService],
