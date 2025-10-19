@@ -153,6 +153,7 @@ export class OrderService extends ServiceBase {
     const orderId = promiseResult[0] as string;
     const addressBinding: any = promiseResult[1];
 
+    // 防呆：若找不到綁定或已刪除，提前回覆
     if (!addressBinding) {
       return this.formatErrorMessage(
         1040,

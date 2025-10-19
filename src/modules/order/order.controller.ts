@@ -10,6 +10,7 @@ import { AuthCustomer } from '../../common/decorators/auth-customer.decorator';
 import { CommodityService } from '../commodity/commodity.service';
 import { CommodityListResDto } from '../commodity/dto/commodity-list-res.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { createOrderSchema } from './schema/create-order.schema.js';
 
 @ApiTags('Order')
 @Controller('order')
@@ -100,11 +101,11 @@ export class OrderController extends ControllerBase {
       customerInfoInOrder,
     } = body;
 
-    // Validation is handled via DTOs/schema in future; keep parity now
-    if (!orderInfo || !orderGasList || !supplierId) {
+    const schema = this.validParam.valid(body, createOrderSchema);
+    if (schema.validation === false) {
       return this.formatResponse('Please check your body.', httpStatus.BAD_REQUEST);
     }
-
+    
     const result = await this.orderService.createOrder(
       orderInfo,
       orderGasList,
