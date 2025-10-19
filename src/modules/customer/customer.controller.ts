@@ -1,12 +1,14 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CustomerService } from './customer.service';
 import { CustomerInSuppliersResDto } from './dto/customer-info-res.dto';
-import { ControllerBase, httpStatus } from '@artifact/aurora-api-core';
+import { ControllerBase } from '@artifact/aurora-api-core';
 import { plainToClass } from 'class-transformer';
+import { AuthCustomer } from 'src/common/decorators/auth-customer.decorator';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 
 @ApiTags('Customer')
-@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('customer')
 export class CustomerController extends ControllerBase{
   constructor(private readonly customerService: CustomerService) {
@@ -18,10 +20,10 @@ export class CustomerController extends ControllerBase{
   @ApiQuery({ name: 'supplierId', required: false, description: 'Supplier ID filter' })
   @ApiResponse({ status: 200, description: 'Customer in suppliers info returned', type: CustomerInSuppliersResDto })
   async findCustomerInSuppliers(
+    @AuthCustomer() customer: any,
     @Query('supplierId') supplierId?: string,
   ) {
-    // TODO: 需要從 JWT token 中取得 customerId
-    const customerId = 1; // 暫時硬編碼，需要實作 JWT 解析
+    const customerId = Number(customer.customer_id);
     const result = await this.customerService.findCustomerInSuppliers(customerId, supplierId);
     const customerInSuppliersResDto = plainToClass(CustomerInSuppliersResDto, result.data, {
       excludeExtraneousValues: true,
