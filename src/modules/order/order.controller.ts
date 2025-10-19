@@ -6,7 +6,7 @@ import { OrderService } from './order.service.js';
 import { OrderInfoResDto } from './dto/order-info-res.dto.js';
 import { OrderListDataResDto } from './dto/order-list-res.dto.js';
 import { GasPriceListResDto } from './dto/gas-price-res.dto.js';
-import { AuthCustomer } from '../../common/decorators/current-user.decorator';
+import { AuthCustomer } from '../../common/decorators/auth-customer.decorator';
 import { CommodityService } from '../commodity/commodity.service';
 import { CommodityListResDto } from '../commodity/dto/commodity-list-res.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
