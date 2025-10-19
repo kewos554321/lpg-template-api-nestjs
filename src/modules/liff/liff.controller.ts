@@ -6,6 +6,6 @@ import { join } from 'path';
 export class LiffController {
   @Get()
   serveLiffPage(@Res() res: Response) {
-    res.sendFile(join(__dirname, '../../../public/liff-simple.html'));
+    res.sendFile(join(__dirname, '../../../public/liff-demo.html'));
   }
 }
