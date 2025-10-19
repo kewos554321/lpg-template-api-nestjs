@@ -236,23 +236,24 @@ export class OrderService extends ServiceBase {
       } as any;
     }
 
-    const orderResult = await this.orderRepository.createOrder(
-      insertOrderInfo,
-      orderGasList,
-      insertOrderCommodityList,
-      insertOrderUsageFeeList,
-      insertCustomerDeliveryList,
-      saveCustomerInfoInOrder,
-      saveCisInfo,
-    );
-    if ((orderResult as any).error === true) {
+    try {
+      const orderResult = await this.orderRepository.createOrder(
+        insertOrderInfo,
+        orderGasList,
+        insertOrderCommodityList,
+        insertOrderUsageFeeList,
+        insertCustomerDeliveryList,
+        saveCustomerInfoInOrder,
+        saveCisInfo,
+      );
+      return this.formatMessage(orderResult, httpStatus.OK);
+    } catch (error) {
       return this.formatErrorMessage(
         1039,
         'Something wrong with database transaction.',
         httpStatus.BAD_REQUEST,
       );
     }
-    return this.formatMessage((orderResult as any).transaction_data, httpStatus.OK);
   }
 }
 

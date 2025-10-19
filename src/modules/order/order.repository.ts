@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, QueryRunner } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
 import {
   AddressBinding,
   CisGasPrice,
@@ -16,7 +16,6 @@ import {
   OrderStatusEnum,
   OrderUsageFee,
   Supplier,
-  typeormHelper,
 } from '@artifact/lpg-api-service';
 import _ from 'lodash';
 import { CreateOrderGasInterface } from './interface/create-order.interface.js';
@@ -35,6 +34,8 @@ export class OrderRepository {
     @InjectRepository(Supplier) private readonly supplierRepository: Repository<Supplier>,
     @InjectRepository(CisGasPrice) private readonly cisGasPriceRepository: Repository<CisGasPrice>,
     @InjectRepository(GasPrice) private readonly gasPriceRepository: Repository<GasPrice>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   private returnOrderBaseInfo() {
@@ -311,33 +312,36 @@ export class OrderRepository {
     saveCustomerInfoInOrder?: Partial<Customer>,
     cisInfo?: Partial<CustomerInSuppliers>,
   ) {
-    const cb = async (queryRunner: QueryRunner) => {
+    return await this.dataSource.transaction(async (manager) => {
       const promise1Result = await Promise.all([
-        queryRunner.manager.insert(OrderList, orderInfo),
-        saveCustomerInfoInOrder ? queryRunner.manager.save(Customer, saveCustomerInfoInOrder) : null,
-        cisInfo ? queryRunner.manager.save(CustomerInSuppliers, cisInfo) : null,
-        queryRunner.manager.save(CustomerDelivery, customerDeliveryList),
+        manager.insert(OrderList, orderInfo),
+        saveCustomerInfoInOrder ? manager.save(Customer, saveCustomerInfoInOrder) : null,
+        cisInfo ? manager.save(CustomerInSuppliers, cisInfo) : null,
+        manager.save(CustomerDelivery, customerDeliveryList),
       ]);
       const orderResult: any = promise1Result[0];
       const customerDeliveryResult: any = promise1Result[3];
 
-      const insertOrderGasList: Partial<OrderGas>[] = orderGasList.map((item) => {
-        if ((item as any).deliveryInfo) {
-          const findDelivery = customerDeliveryResult.find(
-            (delivery) =>
-              delivery.delivery_location === (item as any).deliveryInfo!.deliveryLocation &&
-              delivery.usage_name === (item as any).deliveryInfo!.usageName &&
-              delivery.floor === (item as any).deliveryInfo!.floor &&
-              delivery.is_elevator === (item as any).deliveryInfo!.isElevator,
-          );
-          return {
-            gp_id: (item as any).gpId,
-            cis_gp_id: (item as any).cisGpId,
-            order_id: orderResult.identifiers[0]!.order_id,
-            numbers_of_cylinder: (item as any).numberOfCylinder,
-            customer_delivery_id: findDelivery!.customer_delivery_id,
-          } as any;
-        }
+        const insertOrderGasList: Partial<OrderGas>[] = orderGasList.map((item) => {
+          if ((item as any).deliveryInfo) {
+            const findDelivery = customerDeliveryResult.find(
+              (delivery) =>
+                delivery.delivery_location === (item as any).deliveryInfo!.deliveryLocation &&
+                delivery.usage_name === (item as any).deliveryInfo!.usageName &&
+                delivery.floor === (item as any).deliveryInfo!.floor &&
+                delivery.is_elevator === (item as any).deliveryInfo!.isElevator,
+            );
+            if (!findDelivery) {
+              throw new Error(`Delivery not found for gas item: ${JSON.stringify((item as any).deliveryInfo)}`);
+            }
+            return {
+              gp_id: (item as any).gpId,
+              cis_gp_id: (item as any).cisGpId,
+              order_id: orderResult.identifiers[0]!.order_id,
+              numbers_of_cylinder: (item as any).numberOfCylinder,
+              customer_delivery_id: findDelivery.customer_delivery_id,
+            } as any;
+          }
         return {
           gp_id: (item as any).gpId,
           cis_gp_id: (item as any).cisGpId,
@@ -347,15 +351,15 @@ export class OrderRepository {
       });
 
       const promise2Result = await Promise.all([
-        queryRunner.manager.insert(OrderGas, insertOrderGasList),
-        queryRunner.manager.insert(
+        manager.insert(OrderGas, insertOrderGasList),
+        manager.insert(
           OrderCommodity,
           orderCommodityList.map((item) => ({
             ...item,
             order_id: orderResult.identifiers[0]!.order_id,
           })),
         ),
-        queryRunner.manager.insert(
+        manager.insert(
           OrderUsageFee,
           orderUsageFeeList.map((item) => ({
             ...item,
@@ -373,10 +377,7 @@ export class OrderRepository {
         orderCommodityResult,
         orderCylinderUsageFeeResult,
       } as any;
-    };
-
-    const result = await typeormHelper.databaseTransaction(cb);
-    return result as any;
+    });
   }
 }
 
