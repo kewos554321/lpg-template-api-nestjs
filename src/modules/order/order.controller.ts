@@ -23,7 +23,7 @@ export class OrderController extends ControllerBase {
     super();
   }
 
-  @Get('search/unaccomplished')
+  @Get('unaccomplished')
   @ApiOperation({ summary: 'Get unaccomplished order list' })
   @ApiQuery({ name: 'supplierId', required: true })
   async getUnaccomplishedOrderList(
@@ -44,7 +44,7 @@ export class OrderController extends ControllerBase {
     return this.formatResponse(orderListResDto, result.status);
   }
 
-  @Get('search/accomplished')
+  @Get('accomplished')
   @ApiOperation({ summary: 'Get accomplished order list' })
   @ApiQuery({ name: 'page', required: true })
   @ApiQuery({ name: 'size', required: true })
