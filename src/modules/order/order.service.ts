@@ -28,8 +28,8 @@ import { OrderListStatus, OrderRepository } from './order.repository.js';
 export class OrderService extends ServiceBase {
   constructor(
     private readonly orderModel: OrderRepository,
-    private readonly deliveryModel: DeliveryRepository,
-    private readonly customerModel: CustomerRepository,
+    private readonly deliveryRepository: DeliveryRepository,
+    private readonly customerRepository: CustomerRepository,
   ) {
     super();
   }
@@ -74,7 +74,7 @@ export class OrderService extends ServiceBase {
     supplierId: string,
     isAccomplished: boolean,
   ) {
-    const customerInfo = await this.customerModel.findCustomerInSuppliers(customerId, supplierId);
+    const customerInfo = await this.customerRepository.findCustomerInSuppliers(customerId, supplierId);
 
     const orderList = await this.orderModel.getOrderList(
       page,
@@ -118,7 +118,7 @@ export class OrderService extends ServiceBase {
     gasType?: string,
     kilogram?: number,
   ) {
-    const customerInfo = await this.customerModel.findCustomerInSuppliers(customerId, supplierId);
+    const customerInfo = await this.customerRepository.findCustomerInSuppliers(customerId, supplierId);
     const gasPriceList = await this.orderModel.getGasPriceList(
       customerInfo!.supplier_id,
       gasType,
@@ -143,11 +143,11 @@ export class OrderService extends ServiceBase {
     supplierId?: string,
     customerInfoInOrder?: SaveCustomerInfoInOrderInterface,
   ) {
-    const customerInfo = await this.customerModel.findCustomerInSuppliers(customerId, supplierId);
+    const customerInfo = await this.customerRepository.findCustomerInSuppliers(customerId, supplierId);
 
     const promiseResult = await Promise.all([
       this.orderModel.generateOrderId(customerInfo!.supplier_id),
-      this.deliveryModel.findAddressBindingInfo(orderInfo.customerAddressId),
+      this.deliveryRepository.findAddressBindingInfo(orderInfo.customerAddressId),
     ]);
     const orderId = promiseResult[0] as string;
     const addressBinding: any = promiseResult[1];
