@@ -52,8 +52,45 @@ export class LineAuthResponseDto {
 
 export class LineLoginUrlDto {
   @ApiProperty({ description: 'LINE login URL for user authorization' })
+  @Expose()
   loginUrl!: string;
 
   @ApiProperty({ description: 'State parameter for security' })
+  @Expose()
   state!: string;
+}
+
+export class LiffUrlRequestDto {
+  @ApiProperty({ description: 'Invite code to include in LIFF URL' })
+  @IsString()
+  @IsNotEmpty()
+  inviteCode!: string;
+
+  @ApiProperty({ description: 'Source parameter (optional)', required: false })
+  @IsOptional()
+  @IsString()
+  source?: string;
+
+  @ApiProperty({ description: 'Additional parameters (optional)', required: false })
+  @IsOptional()
+  @IsString()
+  additionalParams?: string;
+}
+
+export class LiffUrlResponseDto {
+  @ApiProperty({ description: 'LIFF URL with invite code' })
+  @Expose()
+  liffUrl!: string;
+
+  @ApiProperty({ description: 'Invite code used' })
+  @Expose()
+  inviteCode!: string;
+
+  @ApiProperty({ description: 'Source parameter' })
+  @Expose()
+  source?: string;
+
+  @ApiProperty({ description: 'QR code URL for easy sharing' })
+  @Expose()
+  qrCodeUrl?: string;
 }

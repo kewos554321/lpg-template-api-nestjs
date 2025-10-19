@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Query, Redirect } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { ControllerBase } from '@artifact/aurora-api-core';
 import { LineAuthService } from './line-auth.service';
-import { LineLoginRequestDto, LineAuthResponseDto, LineLoginUrlDto, LineUserProfileDto } from './dto/line-auth.dto';
+import { LineLoginRequestDto, LineAuthResponseDto, LineLoginUrlDto, LineUserProfileDto, LiffUrlRequestDto, LiffUrlResponseDto } from './dto/line-auth.dto';
 import { plainToClass } from 'class-transformer';
 
 @ApiTags('LINE Auth')

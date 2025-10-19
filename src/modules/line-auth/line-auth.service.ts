@@ -210,6 +210,48 @@ export class LineAuthService extends ServiceBase {
   }
 
   /**
+   * 生成帶有邀請碼的 LIFF URL
+   */
+  public generateLiffUrlWithInviteCode(
+    inviteCode: string, 
+    source?: string, 
+    additionalParams?: string
+  ): { liffUrl: string; inviteCode: string; source?: string; qrCodeUrl?: string } {
+    const baseLiffUrl = 'https://liff.line.me/2008316850-kN5g1q7N';
+    
+    // 構建查詢參數
+    const params = new URLSearchParams();
+    params.set('inviteCode', inviteCode);
+    
+    if (source) {
+      params.set('source', source);
+    }
+    
+    if (additionalParams) {
+      // 解析額外參數（格式：key1=value1&key2=value2）
+      const additionalParamsObj = new URLSearchParams(additionalParams);
+      additionalParamsObj.forEach((value, key) => {
+        params.set(key, value);
+      });
+    }
+    
+    // 生成完整的 LIFF URL
+    const liffUrl = `${baseLiffUrl}?${params.toString()}`;
+    
+    // 生成 QR Code URL（使用 Google Charts API）
+    const qrCodeUrl = `https://chart.googleapis.com/chart?chs=300x300&chld=M|0&cht=qr&chl=${encodeURIComponent(liffUrl)}`;
+    
+    console.log(`[LIFF URL 生成] 邀請碼: ${inviteCode}, 來源: ${source || 'N/A'}, URL: ${liffUrl}`);
+    
+    return {
+      liffUrl,
+      inviteCode,
+      source,
+      qrCodeUrl
+    };
+  }
+
+  /**
    * 計算過期時間
    */
   private calculateExpireDate(): string {
