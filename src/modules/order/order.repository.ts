@@ -35,24 +35,28 @@ export class OrderRepository {
     @InjectRepository(Supplier) private readonly supplierRepository: Repository<Supplier>,
     @InjectRepository(CisGasPrice) private readonly cisGasPriceRepository: Repository<CisGasPrice>,
     @InjectRepository(GasPrice) private readonly gasPriceRepository: Repository<GasPrice>,
-    @InjectRepository(CustomerDelivery) private readonly customerDeliveryRepository: Repository<CustomerDelivery>,
   ) {}
 
   private returnOrderBaseInfo() {
     const orderModel = this.orderRepository
       .createQueryBuilder('order_list')
       .select()
+      /** 瓦斯 */
       .leftJoinAndSelect('order_list.order_gas_list', 'orderGasList')
       .leftJoinAndSelect('orderGasList.gas_price_info', 'gasPrice')
       .leftJoinAndSelect('orderGasList.cis_gas_price_info', 'cisGasPrice')
       .leftJoinAndSelect('gasPrice.gas_cylinder_info', 'gasCylinder')
       .leftJoinAndSelect('cisGasPrice.gas_cylinder_info', 'cisGasCylinder')
       .leftJoinAndSelect('orderGasList.customer_delivery_info', 'customerDelivery')
+      /** 商品 */
       .leftJoinAndSelect('order_list.order_commodity_list', 'orderCommodityList')
       .leftJoinAndSelect('orderCommodityList.commodity_price_info', 'commodityPrice')
       .leftJoinAndSelect('commodityPrice.commodity_info', 'commodity')
+      /** 鋼瓶使用費 */
       .leftJoinAndSelect('order_list.order_usage_fee_list', 'orderUsageFeeList')
+      /** 存退氣 */
       .leftJoinAndSelect('order_list.order_refund_list', 'order_refund_list')
+      /** 客戶地址 */
       .leftJoin(
         (subQuery) => {
           return subQuery
@@ -68,21 +72,29 @@ export class OrderRepository {
             .andWhere('address.deleted = false');
         },
         'lastest_address_binding',
-        'lastest_address_binding.cis_id = order_list.cis_id',
+        'lastest_address_binding.cis_id = order_list.cis_id'
       )
       .leftJoinAndSelect(
         'order_list.address_binding_info',
         'addressBinding',
-        'addressBinding.address_binding_id = lastest_address_binding.address_binding_id',
+        'addressBinding.address_binding_id = lastest_address_binding.address_binding_id'
       )
       .leftJoinAndSelect('addressBinding.customerAddressInfo', 'customerAddress')
       .leftJoinAndSelect('order_list.courier_info', 'courier')
+      /** 掃桶 */
       .leftJoinAndSelect('order_list.cylinder_action_list', 'cylinder_action_list')
       .leftJoinAndSelect('cylinder_action_list.cylinderInfo', 'cylinder')
-      .leftJoinAndSelect('order_list.customerInSupplier', 'customerInSupplier')
+      /** 客戶資料 */
+      .leftJoinAndSelect(
+        'order_list.customerInSupplier',
+        'customerInSupplier',
+        'customerInSupplier.cis_id = lastest_address_binding.cis_id'
+      )
       .leftJoinAndSelect('customerInSupplier.customer_info', 'customer')
+      /** 付款資料 */
       .leftJoinAndSelect('order_list.order_payup_list', 'order_payup_list')
-      .leftJoinAndSelect('order_payup_list.order_payup_work_info', 'order_payup_work');
+      .leftJoinAndSelect('order_payup_list.order_payup_work_info', 'order_payup_work')
+      .leftJoinAndSelect('order_payup_work.bill_of_sale_work_info', 'bill_of_sale_work');
 
     return orderModel;
   }

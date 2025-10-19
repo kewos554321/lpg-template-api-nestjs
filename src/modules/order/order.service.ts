@@ -12,6 +12,7 @@ import {
   OrderStatusEnum,
   OrderUsageFee,
   ServiceBase,
+  deliveryHelper,
 } from '@artifact/lpg-api-service';
 import { CustomerRepository } from '../customer/customer.repository.js';
 import { DeliveryRepository } from '../delivery/delivery.repository.js';
@@ -27,7 +28,7 @@ import { OrderListStatus, OrderRepository } from './order.repository.js';
 @Injectable()
 export class OrderService extends ServiceBase {
   constructor(
-    private readonly orderModel: OrderRepository,
+    private readonly orderRepository: OrderRepository,
     private readonly deliveryRepository: DeliveryRepository,
     private readonly customerRepository: CustomerRepository,
   ) {
@@ -35,7 +36,7 @@ export class OrderService extends ServiceBase {
   }
 
   public async getOrderInfo(orderId: string) {
-    const orderInfo = await this.orderModel.getOrderInfo(orderId);
+    const orderInfo = await this.orderRepository.getOrderInfo(orderId);
     const fullOrderInfo = orderInfo ? this.returnFullOrderList([orderInfo])[0] : null;
     return this.formatMessage(fullOrderInfo, httpStatus.OK);
   }
@@ -58,12 +59,12 @@ export class OrderService extends ServiceBase {
         ...item,
         address_binding_info: {
           ...item.address_binding_info,
-          address: (item.address_binding_info as any).customerAddressInfo
-            ? (item.address_binding_info as any).customerAddressInfo.address
-            : undefined,
+          address: deliveryHelper.mergeToAddressString(
+            item.address_binding_info.customerAddressInfo
+          ),
         },
         deliveryStatus,
-      } as any;
+      };
     });
   }
 
@@ -76,7 +77,7 @@ export class OrderService extends ServiceBase {
   ) {
     const customerInfo = await this.customerRepository.findCustomerInSuppliers(customerId, supplierId);
 
-    const orderList = await this.orderModel.getOrderList(
+    const orderList = await this.orderRepository.getOrderList(
       page,
       size,
       customerId,
@@ -119,12 +120,12 @@ export class OrderService extends ServiceBase {
     kilogram?: number,
   ) {
     const customerInfo = await this.customerRepository.findCustomerInSuppliers(customerId, supplierId);
-    const gasPriceList = await this.orderModel.getGasPriceList(
+    const gasPriceList = await this.orderRepository.getGasPriceList(
       customerInfo!.supplier_id,
       gasType,
       kilogram,
     );
-    const cisGasPriceList = await this.orderModel.getCisGasPriceList(
+    const cisGasPriceList = await this.orderRepository.getCisGasPriceList(
       customerId,
       customerInfo!.supplier_id,
       gasType,
@@ -146,7 +147,7 @@ export class OrderService extends ServiceBase {
     const customerInfo = await this.customerRepository.findCustomerInSuppliers(customerId, supplierId);
 
     const promiseResult = await Promise.all([
-      this.orderModel.generateOrderId(customerInfo!.supplier_id),
+      this.orderRepository.generateOrderId(customerInfo!.supplier_id),
       this.deliveryRepository.findAddressBindingInfo(orderInfo.customerAddressId),
     ]);
     const orderId = promiseResult[0] as string;
@@ -234,7 +235,7 @@ export class OrderService extends ServiceBase {
       } as any;
     }
 
-    const orderResult = await this.orderModel.createOrder(
+    const orderResult = await this.orderRepository.createOrder(
       insertOrderInfo,
       orderGasList,
       insertOrderCommodityList,
