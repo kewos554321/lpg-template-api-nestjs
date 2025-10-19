@@ -16,7 +16,7 @@ export class RegisterController extends ControllerBase{
   @ApiOperation({ summary: 'Get customer or supplier by code' })
   @ApiQuery({ name: 'code', required: true })
   async getCustomerOrSupplierByCode(@Query('code') code?: string) {
-    if (_.isString(code)) {
+    if (!_.isString(code)) {
       return this.formatResponse('Please check your query.', httpStatus.BAD_REQUEST);
     }
     const result = await this.registerService.getCustomerOrSupplierByCode(code);
