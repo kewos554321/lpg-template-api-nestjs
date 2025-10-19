@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, QueryRunner } from 'typeorm';
-import { typeormHelper } from '@artifact/lpg-api-service';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { CustomerAddress, CustomerDelivery } from '@artifact/lpg-api-service';
 import { AddressBinding } from '@artifact/lpg-api-service/dist/database/entities/address_binding';
 
@@ -14,6 +13,8 @@ export class DeliveryRepository {
     private readonly customerDeliveryRepository: Repository<CustomerDelivery>,
     @InjectRepository(AddressBinding)
     private readonly addressBindingRepository: Repository<AddressBinding>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   public async getCustomerAddressList(customerId: number) {
@@ -57,13 +58,14 @@ export class DeliveryRepository {
     customerAddress: Partial<CustomerAddress>,
     addressId?: number
   ) {
-    const cb = async (queryRunner: QueryRunner) => {
-      const customerAddressResult = await queryRunner.manager.insert(
+    return await this.dataSource.transaction(async (manager) => {
+      const customerAddressResult = await manager.insert(
         CustomerAddress,
         customerAddress
       );
+      
       const addressBindingResult = addressId
-        ? await queryRunner.manager.insert(AddressBinding, {
+        ? await manager.insert(AddressBinding, {
             customerAddressId: customerAddressResult.identifiers[0]!.customer_address_id,
             addressId,
           })
@@ -73,10 +75,7 @@ export class DeliveryRepository {
         customerAddressResult,
         addressBindingResult,
       };
-    };
-
-    const result = await typeormHelper.databaseTransaction(cb);
-    return result;
+    });
   }
 }
 

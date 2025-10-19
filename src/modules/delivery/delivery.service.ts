@@ -42,9 +42,6 @@ export class DeliveryService extends ServiceBase {
       addressId
     );
 
-    if (result.error === true) {
-      throw new Error('Something wrong with database transaction.');
-    }
-    return this.formatMessage(result.transaction_data, httpStatus.OK);
+    return this.formatMessage(result, httpStatus.OK);
   }
 }
