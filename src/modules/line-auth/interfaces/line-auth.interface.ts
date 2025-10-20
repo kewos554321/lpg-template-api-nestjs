@@ -19,6 +19,10 @@ export interface LineAuthConfig {
   channelSecret: string;
   redirectUri: string;
   scope: string;
+  /** Optional prompt parameter for LINE authorize (e.g., 'consent') */
+  prompt?: string;
+  /** Optional bot_prompt parameter ('normal' | 'aggressive') */
+  botPrompt?: string;
 }
 
 export interface LineAuthResult {

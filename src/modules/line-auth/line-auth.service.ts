@@ -19,6 +19,8 @@ export class LineAuthService extends ServiceBase {
       channelSecret: this.configService.get<string>('LINE_CHANNEL_SECRET') || '',
       redirectUri: this.configService.get<string>('LINE_REDIRECT_URI') || '',
       scope: 'profile openid email',
+      prompt: this.configService.get<string>('LINE_PROMPT'),
+      botPrompt: this.configService.get<string>('LINE_BOT_PROMPT'),
     };
   }
 
@@ -34,6 +36,15 @@ export class LineAuthService extends ServiceBase {
       state,
       scope: this.lineConfig.scope,
     });
+
+    // Optional: force consent screen each time
+    if (this.lineConfig.prompt) {
+      params.set('prompt', this.lineConfig.prompt);
+    }
+    // Optional: suggest adding the LINE Official Account
+    if (this.lineConfig.botPrompt) {
+      params.set('bot_prompt', this.lineConfig.botPrompt);
+    }
 
     const loginUrl = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
     
