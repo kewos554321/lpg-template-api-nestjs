@@ -101,7 +101,7 @@ import {
     ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig, s3Config, lineAuthConfig] }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (cs: ConfigService) => {
+      useFactory: (cs: ConfigService): any => {
         const c = cs.get('database');
         console.log(c);
         return {

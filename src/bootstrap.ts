@@ -5,7 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 export async function createApp(): Promise<INestApplication> {
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('app-api', { exclude: ['/', 'health'] });
+  app.setGlobalPrefix('app-api', { exclude: ['/', 'health', 'docs'] });
   app.enableCors({
     origin: true,
     credentials: true,
