@@ -12,6 +12,12 @@ export interface LineUserProfile {
   displayName: string;
   pictureUrl?: string;
   statusMessage?: string;
+  language?: string;
+  locale?: string;
+  email?: string;
+  emailVerified?: boolean;
+  givenName?: string;
+  familyName?: string;
 }
 
 export interface LineAuthConfig {

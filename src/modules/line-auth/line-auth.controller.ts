@@ -56,14 +56,16 @@ export class LineAuthController extends ControllerBase {
     lineUserId: string; 
     inviteCode: string; 
     idToken?: string; 
+    accessToken?: string;
   }) {
     try {
 
-      console.log(body, JSON.stringify(body));
+      console.log('[LINE] loginWithInvite body', JSON.stringify(body, null, 2), '\n');
       const result = await this.lineAuthService.loginWithInviteCode(
         body.lineUserId, 
         body.inviteCode, 
-        body.idToken
+        body.idToken,
+        body.accessToken
       );
 
       console.log(result, JSON.stringify(result));
@@ -96,6 +98,8 @@ export class LineAuthController extends ControllerBase {
     // 簡化版本：重定向到 LIFF 頁面
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const redirectUrl = `${frontendUrl}/liff?code=${code}&state=${state || ''}`;
+
+    console.log('[LINE] handleCallback redirectUrl', redirectUrl, '\n');
     
     return { url: redirectUrl };
   }

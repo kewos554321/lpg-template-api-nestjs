@@ -13,6 +13,6 @@ export class LiffController {
       console.log('[LIFF] 沒有收到邀請碼參數');
     }
     
-    res.sendFile(join(__dirname, '../../../public/liff-demo.html'));
+    res.sendFile(join(__dirname, 'liff-demo.html'));
   }
 }

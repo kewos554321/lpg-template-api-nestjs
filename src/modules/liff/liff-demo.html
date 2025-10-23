@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE 登入測試</title>
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #00B900;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #009900;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>LINE 登入測試</h2>
+        
+        <div class="info">
+            <strong>測試說明：</strong><br>
+            1. 輸入任意邀請碼（至少6位數字）<br>
+            2. 點擊「使用邀請碼登入」<br>
+            3. 系統會使用真實的 LINE 用戶資料<br>
+            <br>
+            <strong>快速測試邀請碼：</strong><br>
+            <button onclick="setInviteCode('123456')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">123456</button>
+            <button onclick="setInviteCode('888888')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">888888</button>
+            <button onclick="setInviteCode('999999')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">999999</button>
+        </div>
+        
+        <div id="loginSection">
+            <div class="form-group">
+                <label for="inviteCode">邀請碼：</label>
+                <input type="text" id="inviteCode" placeholder="請輸入邀請碼（例如：123456）" maxlength="20">
+            </div>
+            
+            <button onclick="loginWithInvite()">使用邀請碼登入</button>
+            <button onclick="logout()" style="background-color: #ff4444;">登出</button>
+        </div>
+        
+        <div id="message"></div>
+        
+        <div id="result" style="display: none; margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 5px;">
+            <h3>登入結果</h3>
+            <p><strong>JWT Token:</strong> <span id="jwtToken"></span></p>
+            <p><strong>用戶名稱:</strong> <span id="userName"></span></p>
+            <p><strong>用戶ID:</strong> <span id="userId"></span></p>
+            <p><strong>是否新用戶:</strong> <span id="isNewUser"></span></p>
+        </div>
+
+        <!-- 連結成功頁面 -->
+        <div id="successPage" style="display: none; margin-top: 20px; padding: 20px; background: #e8f5e8; border-radius: 10px; text-align: center;">
+            <div style="font-size: 48px; color: #4CAF50; margin-bottom: 20px;">✅</div>
+            <h2 style="color: #4CAF50; margin-bottom: 15px;">連結成功！</h2>
+            <p style="color: #666; margin-bottom: 20px;">您的 LINE 帳號已成功綁定到系統</p>
+            
+            <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <p><strong>綁定資訊：</strong></p>
+                <p>LINE 用戶：<span id="successUserName"></span></p>
+                <p>用戶 ID：<span id="successUserId"></span></p>
+                <p>綁定時間：<span id="bindTime"></span></p>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button onclick="goToMainApp()" style="background-color: #4CAF50; color: white; padding: 12px 24px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-right: 10px;">
+                    進入主應用
+                </button>
+                <button onclick="shareSuccess()" style="background-color: #2196F3; color: white; padding: 12px 24px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-right: 10px;">
+                    分享給朋友
+                </button>
+                <button onclick="restartProcess()" style="background-color: #FF9800; color: white; padding: 12px 24px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">
+                    重新開始
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const liffId = '2008316850-kN5g1q7N';
+        
+        // 快速設置邀請碼的函數
+        function setInviteCode(code) {
+            document.getElementById('inviteCode').value = code;
+            console.log(`設置邀請碼: ${code}`);
+        }
+        
+        // 初始化 LIFF
+        async function initializeLiff() {
+            try {
+                await liff.init({ liffId: liffId });
+                console.log('LIFF 初始化成功');
+                
+                if (liff.isLoggedIn()) {
+                    console.log('已登入');
+                    await showUserInfo();
+                } else {
+                    console.log('未登入');
+                    showLoginButton();
+                }
+            } catch (error) {
+                console.error('LIFF 初始化失敗:', error);
+                showMessage('LIFF 初始化失敗，請在 LINE 中開啟此頁面', 'error');
+            }
+        }
+
+        // 顯示用戶資訊
+        async function showUserInfo() {
+            try {
+                // 透過 LIFF 取得使用者資料
+                const profile = await liff.getProfile();
+                const decoded = liff.getDecodedIDToken();
+
+                console.log('用戶資訊 (liff.getProfile):', profile);
+                console.log('ID Token 解碼 (liff.getDecodedIDToken):', decoded);
+                console.log('liff.getDecodedIDToken() 詳細內容:', JSON.stringify(decoded, null, 2));
+                document.getElementById('userId').textContent = profile.userId;
+                document.getElementById('userName').textContent = profile.displayName;
+            } catch (error) {
+                console.error('取得用戶資訊失敗:', error);
+            }
+        }
+
+        // 顯示登入按鈕
+        function showLoginButton() {
+            const loginSection = document.getElementById('loginSection');
+            loginSection.innerHTML = `
+                <h3>請先登入 LINE</h3>
+                <p>您需要先登入 LINE 才能使用此功能</p>
+                <button onclick="loginWithLine()">使用 LINE 登入</button>
+            `;
+        }
+
+        // LINE 登入
+        function loginWithLine() {
+            liff.login();
+        }
+
+        // 登出
+        function logout() {
+            liff.logout();
+        }
+
+        // 使用邀請碼登入
+        async function loginWithInvite() {
+            const inviteCode = document.getElementById('inviteCode').value.trim();
+            
+            if (!inviteCode || inviteCode.length < 6) {
+                showMessage('請輸入至少6位數字的邀請碼', 'error');
+                return;
+            }
+
+            try {
+                showMessage('正在登入...', 'success');
+                
+                // 取得 LINE 用戶資訊（profile 與 decoded ID token 兩種來源）
+                const profile = await liff.getProfile();
+                const decoded = liff.getDecodedIDToken();
+                const idToken = liff.getIDToken();
+                const accessToken = liff.getAccessToken();
+
+                console.log('用戶資訊 (liff.getProfile):', profile);
+                console.log('ID Token 解碼 (liff.getDecodedIDToken):', decoded);
+                console.log('liff.getDecodedIDToken() 詳細內容:', JSON.stringify(decoded, null, 2));
+                
+                const response = await fetch('/app-api/line-auth/login-with-invite', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        lineUserId: profile.userId,
+                        inviteCode: inviteCode,
+                        idToken: idToken,
+                        accessToken: accessToken
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('API 回應:', result);
+                
+                if (result.status === 200 && result.data) {
+                    showMessage('登入成功！', 'success');
+                    showSuccessPage(result.data);
+                } else {
+                    console.error('登入失敗:', result);
+                    showMessage(result.message || result.data || '登入失敗', 'error');
+                }
+            } catch (error) {
+                console.error('登入錯誤:', error);
+                showMessage('登入過程中發生錯誤: ' + error.message, 'error');
+            }
+        }
+
+        // 顯示結果
+        function showResult(data) {
+            document.getElementById('jwtToken').textContent = data.jwtToken.substring(0, 50) + '...';
+            document.getElementById('userName').textContent = data.userProfile.displayName;
+            document.getElementById('userId').textContent = data.userProfile.userId;
+            document.getElementById('isNewUser').textContent = data.isNewUser ? '是' : '否';
+            document.getElementById('result').style.display = 'block';
+        }
+
+        // 顯示成功頁面
+        function showSuccessPage(data) {
+            // 隱藏登入區域和結果區域
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('result').style.display = 'none';
+            
+            // 顯示成功頁面
+            document.getElementById('successPage').style.display = 'block';
+            
+            // 填入成功資訊
+            document.getElementById('successUserName').textContent = data.userProfile.displayName;
+            document.getElementById('successUserId').textContent = data.userProfile.userId;
+            document.getElementById('bindTime').textContent = new Date().toLocaleString('zh-TW');
+            
+            // 儲存 JWT token 到 localStorage
+            localStorage.setItem('jwt_token', data.jwtToken);
+            localStorage.setItem('user_profile', JSON.stringify(data.userProfile));
+            
+            console.log('連結成功！用戶資訊已儲存');
+        }
+
+        // 進入主應用
+        function goToMainApp() {
+            // 這裡可以重定向到您的主應用
+            // 例如：window.location.href = 'https://your-main-app.com';
+            
+            // 暫時顯示訊息
+            showMessage('正在重定向到主應用...', 'success');
+            
+            // 模擬重定向（您可以替換為實際的主應用 URL）
+            setTimeout(() => {
+                alert('這裡會重定向到您的主應用\n\n目前是測試模式，請設定實際的主應用 URL');
+            }, 1000);
+        }
+
+        // 分享成功
+        function shareSuccess() {
+            if (liff.isApiAvailable('shareTargetPicker')) {
+                liff.shareTargetPicker([
+                    {
+                        type: 'text',
+                        text: '我已經成功連結到系統了！您也可以透過邀請碼來連結您的帳號。'
+                    }
+                ]).then(() => {
+                    console.log('分享成功');
+                }).catch((error) => {
+                    console.error('分享失敗:', error);
+                    showMessage('分享功能暫時無法使用', 'error');
+                });
+            } else {
+                // 如果無法使用分享功能，複製到剪貼板
+                const shareText = '我已經成功連結到系統了！您也可以透過邀請碼來連結您的帳號。';
+                navigator.clipboard.writeText(shareText).then(() => {
+                    showMessage('分享文字已複製到剪貼板', 'success');
+                }).catch(() => {
+                    showMessage('無法複製到剪貼板', 'error');
+                });
+            }
+        }
+
+        // 重新開始流程
+        function restartProcess() {
+            // 清除儲存的資料
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_profile');
+            
+            // 隱藏成功頁面
+            document.getElementById('successPage').style.display = 'none';
+            
+            // 顯示登入區域
+            document.getElementById('loginSection').style.display = 'block';
+            
+            // 清空邀請碼輸入框
+            document.getElementById('inviteCode').value = '';
+            
+            // 清空訊息
+            document.getElementById('message').textContent = '';
+            document.getElementById('message').className = '';
+            
+            console.log('已重新開始邀請碼登入流程');
+        }
+
+        // 顯示訊息
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = message;
+            messageDiv.className = type;
+        }
+
+        // 頁面載入時初始化
+        window.addEventListener('load', initializeLiff);
+    </script>
+</body>
+</html>

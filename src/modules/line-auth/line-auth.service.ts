@@ -79,17 +79,39 @@ export class LineAuthService extends ServiceBase {
    */
   public async getUserProfile(accessToken: string): Promise<LineUserProfile> {
     try {
-      const response = await axios.get('https://api.line.me/v2/profile', {
+      const response = await axios.get('https://api.line.me/v2/profile ', {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
+
+      // 透過 OpenID UserInfo 取得更多欄位（若 scope/openid 設定允許）
+      let userInfo: any = {};
+      try {
+        console.log(`start userInfoResp`)
+        const userInfoResp = await axios.get('https://api.line.me/oauth2/v2.1/userinfo', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+        console.log(`userInfoResp ${JSON.stringify(userInfoResp, null, 2)}`)
+        userInfo = userInfoResp.data || {};
+      } catch (e) {
+        console.error('userInfoResp e -> ' , e)
+        userInfo = {};
+      }
 
       return {
         userId: response.data.userId,
         displayName: response.data.displayName,
         pictureUrl: response.data.pictureUrl,
         statusMessage: response.data.statusMessage,
+        language: userInfo.lang || userInfo.locale,
+        locale: userInfo.locale,
+        email: userInfo.email,
+        emailVerified: userInfo.email_verified,
+        givenName: userInfo.given_name,
+        familyName: userInfo.family_name,
       };
     } catch (error) {
       throw new UnauthorizedException('Failed to get user profile');
@@ -99,17 +121,66 @@ export class LineAuthService extends ServiceBase {
   /**
    * 驗證 ID Token 並提取用戶資訊
    */
-  public async verifyIdToken(idToken: string): Promise<LineUserProfile> {
+  public async verifyIdToken(idToken: string, accessToken?: string): Promise<LineUserProfile> {
     try {
       // 簡化版本：直接解析 JWT payload
       const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString());
+
+      console.info('idToken payload', JSON.stringify(payload, null, 2), '\n');
+
+      // 驗證 ID Token（向 LINE 平台驗證），並輸出回應內容以便除錯
+      try {
+        const form = new URLSearchParams();
+        form.set('id_token', idToken);
+        form.set('client_id', this.lineConfig.channelId);
+        const verifyResp = await axios.post(
+          'https://api.line.me/oauth2/v2.1/verify',
+          form.toString(),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        );
+        console.log('[LINE] /oauth2/v2.1/verify (id_token) response:', JSON.stringify(verifyResp.data, null, 2));
+      } catch (e) {
+        console.warn('[LINE] verify id_token failed:', e?.response?.data || e?.message);
+      }
       
-      return {
+      const baseFromIdToken: LineUserProfile = {
         userId: payload.sub,
         displayName: payload.name,
         pictureUrl: payload.picture,
         statusMessage: undefined,
+        language: payload.lang || payload.locale || undefined,
+        email: payload.email,
+        emailVerified: payload.email_verified,
       };
+
+      // 若同時取得 accessToken，嘗試補充更多 profile 欄位
+      console.log(`userInfoResp1`, accessToken)
+      if (accessToken) {
+        try {
+          console.log(`userInfoResp2`)
+
+          const enriched = await this.getUserProfile(accessToken);
+
+          return {
+            ...baseFromIdToken,
+            // 以 userInfo/PROFILE 為準，回填更多欄位
+            displayName: enriched.displayName || baseFromIdToken.displayName,
+            pictureUrl: enriched.pictureUrl || baseFromIdToken.pictureUrl,
+            statusMessage: enriched.statusMessage ?? baseFromIdToken.statusMessage,
+            language: enriched.language || baseFromIdToken.language,
+            locale: enriched.locale || undefined,
+            email: enriched.email || baseFromIdToken.email,
+            emailVerified: enriched.emailVerified ?? baseFromIdToken.emailVerified,
+            givenName: enriched.givenName || undefined,
+            familyName: enriched.familyName || undefined,
+          };
+        } catch (_) {
+          // 無法取得 userinfo 時，仍回傳 idToken 解析結果
+          return baseFromIdToken;
+        }
+      }
+
+      return baseFromIdToken;
     } catch (error) {
       throw new UnauthorizedException('Failed to verify ID token');
     }
@@ -123,8 +194,20 @@ export class LineAuthService extends ServiceBase {
       // 1. 交換授權碼獲取權杖
       const tokenResponse = await this.exchangeCodeForToken(code);
       
-      // 2. 獲取用戶資料
+      // 2. 獲取用戶資料（合併 Profile 與 UserInfo）
       const userProfile = await this.getUserProfile(tokenResponse.access_token);
+      console.log('[LINE] enriched userProfile', {
+        userId: userProfile.userId,
+        displayName: userProfile.displayName,
+        pictureUrl: userProfile.pictureUrl,
+        statusMessage: userProfile.statusMessage,
+        language: userProfile.language,
+        locale: userProfile.locale,
+        email: userProfile.email,
+        emailVerified: userProfile.emailVerified,
+        givenName: userProfile.givenName,
+        familyName: userProfile.familyName,
+      });
       
       // 3. 簡化版本：直接生成 JWT token（不進行資料庫操作）
       const jwtToken = this.generateJwtToken(userProfile.userId);
@@ -147,7 +230,8 @@ export class LineAuthService extends ServiceBase {
   public async loginWithInviteCode(
     lineUserId: string, 
     inviteCode: string, 
-    idToken?: string
+    idToken?: string,
+    accessToken?: string
   ): Promise<LineAuthResult> {
     try {
       console.log(`[測試模式] 邀請碼登入 - LINE用戶: ${lineUserId}, 邀請碼: ${inviteCode}`);
@@ -161,8 +245,8 @@ export class LineAuthService extends ServiceBase {
       let userProfile: LineUserProfile;
       if (idToken) {
         try {
-          userProfile = await this.verifyIdToken(idToken);
-          console.log(`[測試模式] 使用真實 LINE 用戶資料: ${userProfile.displayName}`);
+          userProfile = await this.verifyIdToken(idToken, accessToken);
+          console.log(`[測試模式] 使用真實 LINE 用戶資料: ${JSON.stringify(userProfile, null, 2)}`);
         } catch (error) {
           console.log('[測試模式] ID Token 解析失敗，使用模擬資料');
           userProfile = {
