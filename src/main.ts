@@ -1,7 +1,13 @@
 import { createApp } from './bootstrap';
+import { LogDecorator } from './common/decorators/log.decorator';
 
-async function bootstrap() {
-  const app = await createApp();
-  await app.listen(4012);
+@LogDecorator(Main.name)
+export class Main {
+  async bootstrap() {
+    const app = await createApp();
+    await app.listen(4012);
+    this.logger.log(`Application is running on: http://localhost:4012`);
+    this.logger.log(`Swagger documentation: http://localhost:4012/swagger`);
+  }
 }
-bootstrap();
+new Main().bootstrap();

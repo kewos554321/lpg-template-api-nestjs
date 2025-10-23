@@ -5,7 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 export async function createApp(): Promise<INestApplication> {
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('app-api', { exclude: ['/', 'health'] });
+  app.setGlobalPrefix('app-api', { exclude: ['/', 'health', 'swagger'] });
   app.enableCors({
     origin: true,
     credentials: true,
@@ -22,7 +22,7 @@ export async function createApp(): Promise<INestApplication> {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document, {
+  SwaggerModule.setup('swagger', app, document, {
     customSiteTitle: 'LPG Template API Docs',
     customCssUrl: 'https://unpkg.com/swagger-ui-dist@5/swagger-ui.css',
     customfavIcon: 'https://unpkg.com/swagger-ui-dist@5/favicon-32x32.png',
