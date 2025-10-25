@@ -82,4 +82,25 @@ export class LineAuthController extends ControllerBase {
     
     return { url: redirectUrl };
   }
+
+  @Get('debug/bindings')
+  @ApiOperation({ summary: 'Get all bindings (debug endpoint)' })
+  async getAllBindings() {
+    const bindings = this.lineAuthService.getAllBindings();
+    return this.formatResponse(bindings, 200);
+  }
+
+  @Get('debug/linebot-users')
+  @ApiOperation({ summary: 'Get all linebot users (debug endpoint)' })
+  async getAllLinebotUsers() {
+    const users = this.lineAuthService.getAllLinebotUsers();
+    return this.formatResponse(users, 200);
+  }
+
+  @Post('debug/clear')
+  @ApiOperation({ summary: 'Clear all in-memory data (debug endpoint)' })
+  async clearAllData() {
+    this.lineAuthService.clearAllData();
+    return this.formatResponse({ message: 'All data cleared' }, 200);
+  }
 }

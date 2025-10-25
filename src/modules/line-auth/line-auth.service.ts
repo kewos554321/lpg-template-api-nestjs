@@ -177,22 +177,44 @@ export class LineAuthService extends ServiceBase {
       const userProfile = await this.getUserProfile(accessToken);
       this.logger.log(`[安全模式] 從 LINE Platform 獲取的真實用戶資料: ${JSON.stringify(userProfile, null, 2)}`);
 
-      // 生成 JWT token（使用 LINE 用戶 ID 的 hash 值）
-      const customerId = Math.abs(userProfile.userId.split('').reduce((a, b) => {
-        a = ((a << 5) - a) + b.charCodeAt(0);
-        return a & a;
-      }, 0));
-      
-      const jwtToken = this.generateJwtToken(customerId);
-      const expireDate = this.calculateExpireDate();
+      // 從 customerInSuppliers 取得 customer_id
+      const customerId = customerInSuppliers.customer_id;
+      this.logger.log(`[安全模式] 取得 customer_id: ${customerId}`);
 
+      // 檢查是否已有 binding 和對應的 line_user_id
+      const { binding, linebotUser } = await this.lineAuthRepository.findBindingByCustomerId(customerId);
+      
+      let jwtToken: string;
+      let isNewUser: boolean;
+
+      if (binding && linebotUser) {
+        // 已存在 binding，使用現有的 line_user_id 和 customer_id 生成 JWT
+        this.logger.log(`[安全模式] 找到現有 binding - line_user_id: ${linebotUser.line_user_id}`);
+        jwtToken = this.generateJwtTokenWithLineId(customerId, linebotUser.line_user_id);
+        isNewUser = false;
+      } else {
+        // 不存在 binding，創建新的 binding 和 linebot_user
+        this.logger.log(`[安全模式] 創建新的 binding 和 linebot_user`);
+        const { binding: newBinding, linebotUser: newLinebotUser } = await this.lineAuthRepository.createBindingAndLinebotUser(
+          customerId,
+          userProfile.userId,
+          userProfile.displayName,
+          userProfile.pictureUrl || '',
+          undefined // phone_number 暫時為空
+        );
+        
+        jwtToken = this.generateJwtTokenWithLineId(customerId, newLinebotUser.line_user_id);
+        isNewUser = true;
+      }
+
+      const expireDate = this.calculateExpireDate();
       this.logger.log(`[安全模式] 登入成功 - 客戶ID: ${customerId}, JWT: ${jwtToken.substring(0, 20)}...`);
 
       return {
         jwtToken,
         expireDate,
         userProfile,
-        isNewUser: false, // 標記為現有用戶
+        isNewUser,
       };
     } catch (error) {
       this.logger.error(`[安全模式] 認證碼登入失敗: ${error.message || error}`);
@@ -201,7 +223,23 @@ export class LineAuthService extends ServiceBase {
   }
 
   /**
-   * 生成 JWT token
+   * 生成 JWT token（包含 customer_id 和 line_user_id）
+   */
+  private generateJwtTokenWithLineId(customerId: number, lineUserId: string): string {
+    const payload = {
+      customer_id: customerId,
+      line_user_id: lineUserId,
+      date: new Date().getTime(),
+    };
+
+    const sign = process.env.JWT_SIGN as string;
+    const expireTime = process.env.JWT_EXPIRED === 'true' ? '2h' : undefined;
+    
+    return tokenHelper.generateJwtToken(payload, sign, expireTime);
+  }
+
+  /**
+   * 生成 JWT token（舊版本，保留向後兼容）
    */
   private generateJwtToken(customerId: number | string): string {
     const payload = {
@@ -266,5 +304,27 @@ export class LineAuthService extends ServiceBase {
       nowDate.setHours(nowDate.getHours() + 2);
     }
     return nowDate.toISOString();
+  }
+
+  /**
+   * 獲取所有內存中的 binding 資料（用於調試）
+   */
+  public getAllBindings() {
+    return this.lineAuthRepository.getAllBindings();
+  }
+
+  /**
+   * 獲取所有內存中的 linebot_user 資料（用於調試）
+   */
+  public getAllLinebotUsers() {
+    return this.lineAuthRepository.getAllLinebotUsers();
+  }
+
+  /**
+   * 清空內存資料（用於測試）
+   */
+  public clearAllData() {
+    this.lineAuthRepository.clearAllData();
+    this.logger.log(`[Service] 清空所有內存資料`);
   }
 }
