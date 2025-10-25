@@ -2,17 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
 import { Expose } from 'class-transformer';
 
-export class LineLoginRequestDto {
-  @ApiProperty({ description: 'LINE authorization code from callback' })
-  @IsString()
-  @IsNotEmpty()
-  code!: string;
-
-  @ApiProperty({ description: 'State parameter for security', required: false })
-  @IsOptional()
-  @IsString()
-  state?: string;
-}
 
 export class LineUserProfileDto {
   @ApiProperty({ description: 'LINE user ID' })
@@ -50,15 +39,6 @@ export class LineAuthResponseDto {
   isNewUser!: boolean;
 }
 
-export class LineLoginUrlDto {
-  @ApiProperty({ description: 'LINE login URL for user authorization' })
-  @Expose()
-  loginUrl!: string;
-
-  @ApiProperty({ description: 'State parameter for security' })
-  @Expose()
-  state!: string;
-}
 
 export class LiffUrlRequestDto {
   @ApiProperty({ description: 'Invite code to include in LIFF URL' })

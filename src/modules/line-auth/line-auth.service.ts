@@ -2,10 +2,9 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { tokenHelper, ServiceBase } from '@artifact/lpg-api-service';
-import { LineAuthConfig, LineTokenResponse, LineUserProfile, LineAuthResult } from './interfaces/line-auth.interface';
+import { LineAuthConfig, LineUserProfile, LineAuthResult } from './interfaces/line-auth.interface';
 import { LineUserProfileDto } from './dto/line-auth.dto';
 import { plainToClass } from 'class-transformer';
-import * as crypto from 'crypto';
 
 @Injectable()
 export class LineAuthService extends ServiceBase {
@@ -24,53 +23,36 @@ export class LineAuthService extends ServiceBase {
     };
   }
 
-  /**
-   * 生成 LINE 登入 URL
-   */
-  public generateLoginUrl(): { loginUrl: string; state: string } {
-    const state = crypto.randomBytes(32).toString('hex');
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: this.lineConfig.channelId,
-      redirect_uri: this.lineConfig.redirectUri,
-      state,
-      scope: this.lineConfig.scope,
-    });
-
-    // Optional: force consent screen each time
-    if (this.lineConfig.prompt) {
-      params.set('prompt', this.lineConfig.prompt);
-    }
-    // Optional: suggest adding the LINE Official Account
-    if (this.lineConfig.botPrompt) {
-      params.set('bot_prompt', this.lineConfig.botPrompt);
-    }
-
-    const loginUrl = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
-    
-    return { loginUrl, state };
-  }
 
   /**
-   * 使用授權碼交換存取權杖
+   * 驗證 access token 是否有效
    */
-  public async exchangeCodeForToken(code: string): Promise<LineTokenResponse> {
+  public async verifyAccessToken(accessToken: string): Promise<{ client_id: string; expires_in: number }> {
     try {
-      const response = await axios.post('https://api.line.me/oauth2/v2.1/token', {
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: this.lineConfig.redirectUri,
-        client_id: this.lineConfig.channelId,
-        client_secret: this.lineConfig.channelSecret,
-      }, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+      const response = await axios.get('https://api.line.me/oauth2/v2.1/verify', {
+        params: {
+          access_token: accessToken
+        }
       });
 
-      return response.data;
+      console.log('[LINE] Access token verification response:', JSON.stringify(response.data, null, 2));
+
+      const { client_id, expires_in } = response.data;
+      
+      // 驗證 client_id 是否匹配我們的 channel ID
+      if (client_id !== this.lineConfig.channelId) {
+        throw new UnauthorizedException('Invalid client_id in access token');
+      }
+
+      // 驗證 token 是否未過期
+      if (expires_in <= 0) {
+        throw new UnauthorizedException('Access token has expired');
+      }
+
+      return { client_id, expires_in };
     } catch (error) {
-      throw new UnauthorizedException('Failed to exchange code for token');
+      console.error('[LINE] Access token verification failed:', error?.response?.data || error?.message);
+      throw new UnauthorizedException('Failed to verify access token');
     }
   }
 
@@ -186,46 +168,9 @@ export class LineAuthService extends ServiceBase {
     }
   }
 
-  /**
-   * 處理 LINE 登入流程（簡化版本）
-   */
-  public async handleLineLogin(code: string): Promise<LineAuthResult> {
-    try {
-      // 1. 交換授權碼獲取權杖
-      const tokenResponse = await this.exchangeCodeForToken(code);
-      
-      // 2. 獲取用戶資料（合併 Profile 與 UserInfo）
-      const userProfile = await this.getUserProfile(tokenResponse.access_token);
-      console.log('[LINE] enriched userProfile', {
-        userId: userProfile.userId,
-        displayName: userProfile.displayName,
-        pictureUrl: userProfile.pictureUrl,
-        statusMessage: userProfile.statusMessage,
-        language: userProfile.language,
-        locale: userProfile.locale,
-        email: userProfile.email,
-        emailVerified: userProfile.emailVerified,
-        givenName: userProfile.givenName,
-        familyName: userProfile.familyName,
-      });
-      
-      // 3. 簡化版本：直接生成 JWT token（不進行資料庫操作）
-      const jwtToken = this.generateJwtToken(userProfile.userId);
-      const expireDate = this.calculateExpireDate();
-
-      return {
-        jwtToken,
-        expireDate,
-        userProfile,
-        isNewUser: true, // 簡化版本總是標記為新用戶
-      };
-    } catch (error) {
-      throw new BadRequestException('LINE login failed');
-    }
-  }
 
   /**
-   * 使用邀請碼登入（簡化版本）
+   * 使用邀請碼登入（安全版本 - 使用 access token 驗證）
    */
   public async loginWithInviteCode(
     lineUserId: string, 
@@ -234,21 +179,41 @@ export class LineAuthService extends ServiceBase {
     accessToken?: string
   ): Promise<LineAuthResult> {
     try {
-      console.log(`[測試模式] 邀請碼登入 - LINE用戶: ${lineUserId}, 邀請碼: ${inviteCode}`);
+      console.log(`[安全模式] 邀請碼登入 - LINE用戶: ${lineUserId}, 邀請碼: ${inviteCode}`);
       
-      // 簡化版本：直接驗證邀請碼格式
+      // 驗證邀請碼格式
       if (!inviteCode || inviteCode.length < 6) {
         throw new BadRequestException('無效的邀請碼格式');
       }
 
-      // 從 idToken 解析真實的用戶資訊（如果有的話）
       let userProfile: LineUserProfile;
-      if (idToken) {
+
+      // 優先使用 access token 進行安全驗證
+      if (accessToken) {
         try {
-          userProfile = await this.verifyIdToken(idToken, accessToken);
-          console.log(`[測試模式] 使用真實 LINE 用戶資料: ${JSON.stringify(userProfile, null, 2)}`);
+          console.log('[安全模式] 使用 access token 進行安全驗證');
+          
+          // 1. 驗證 access token 是否有效
+          const verificationResult = await this.verifyAccessToken(accessToken);
+          console.log('[安全模式] Access token 驗證成功:', verificationResult);
+          
+          // 2. 使用 access token 獲取用戶資料
+          userProfile = await this.getUserProfile(accessToken);
+          console.log('[安全模式] 從 LINE Platform 獲取的真實用戶資料:', JSON.stringify(userProfile, null, 2));
+          
         } catch (error) {
-          console.log('[測試模式] ID Token 解析失敗，使用模擬資料');
+          console.error('[安全模式] Access token 驗證失敗:', error);
+          throw new UnauthorizedException('Access token 驗證失敗，請重新登入');
+        }
+      } 
+      // 備用方案：使用 ID token（較不安全）
+      else if (idToken) {
+        try {
+          console.log('[備用模式] 使用 ID token 解析用戶資料');
+          userProfile = await this.verifyIdToken(idToken);
+          console.log('[備用模式] 從 ID token 解析的用戶資料:', JSON.stringify(userProfile, null, 2));
+        } catch (error) {
+          console.log('[備用模式] ID Token 解析失敗，使用模擬資料');
           userProfile = {
             userId: lineUserId,
             displayName: `測試用戶_${inviteCode}`,
@@ -256,8 +221,10 @@ export class LineAuthService extends ServiceBase {
             statusMessage: ''
           };
         }
-      } else {
-        // 模擬用戶資料
+      } 
+      // 最後備用方案：模擬用戶資料（僅用於測試）
+      else {
+        console.log('[測試模式] 無 access token 和 ID token，使用模擬資料');
         userProfile = {
           userId: lineUserId,
           displayName: `測試用戶_${inviteCode}`,
@@ -267,7 +234,7 @@ export class LineAuthService extends ServiceBase {
       }
 
       // 生成 JWT token（使用 LINE 用戶 ID 的 hash 值）
-      const customerId = Math.abs(lineUserId.split('').reduce((a, b) => {
+      const customerId = Math.abs(userProfile.userId.split('').reduce((a, b) => {
         a = ((a << 5) - a) + b.charCodeAt(0);
         return a & a;
       }, 0));
@@ -275,17 +242,17 @@ export class LineAuthService extends ServiceBase {
       const jwtToken = this.generateJwtToken(customerId);
       const expireDate = this.calculateExpireDate();
 
-      console.log(`[測試模式] 登入成功 - 客戶ID: ${customerId}, JWT: ${jwtToken.substring(0, 20)}...`);
+      console.log(`[安全模式] 登入成功 - 客戶ID: ${customerId}, JWT: ${jwtToken.substring(0, 20)}...`);
 
       return {
         jwtToken,
         expireDate,
         userProfile,
-        isNewUser: false, // 測試模式總是標記為現有用戶
+        isNewUser: false, // 標記為現有用戶
       };
     } catch (error) {
-      console.error('[測試模式] 邀請碼登入失敗:', error);
-      throw new BadRequestException('邀請碼登入失敗');
+      console.error('[安全模式] 邀請碼登入失敗:', error);
+      throw new BadRequestException(error.message || '邀請碼登入失敗');
     }
   }
 

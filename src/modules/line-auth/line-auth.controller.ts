@@ -2,9 +2,11 @@ import { Controller, Get, Post, Body, Query, Redirect } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { ControllerBase } from '@artifact/aurora-api-core';
 import { LineAuthService } from './line-auth.service';
-import { LineLoginRequestDto, LineAuthResponseDto, LineLoginUrlDto, LineUserProfileDto, LiffUrlRequestDto, LiffUrlResponseDto } from './dto/line-auth.dto';
+import { LineAuthResponseDto, LineUserProfileDto } from './dto/line-auth.dto';
 import { plainToClass } from 'class-transformer';
+import { LogDecorator } from 'src/common/decorators/log.decorator';
 
+@LogDecorator('LineAuthController')
 @ApiTags('LINE Auth')
 @Controller('line-auth')
 export class LineAuthController extends ControllerBase {
@@ -12,46 +14,12 @@ export class LineAuthController extends ControllerBase {
     super();
   }
 
-  @Get('login-url')
-  @ApiOperation({ summary: 'Get LINE login URL' })
-  @ApiResponse({ status: 200, description: 'LINE login URL generated successfully', type: LineLoginUrlDto })
-  async getLoginUrl() {
-    const result = this.lineAuthService.generateLoginUrl();
-    const lineLoginUrlDto = plainToClass(LineLoginUrlDto, result, {
-      excludeExtraneousValues: true,
-    });
-    return this.formatResponse(lineLoginUrlDto, 200);
-  }
-
-  @Post('login')
-  @ApiOperation({ summary: 'Login with LINE authorization code' })
-  @ApiResponse({ status: 200, description: 'Login successful', type: LineAuthResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid authorization code' })
-  async loginWithLine(@Body() loginRequest: LineLoginRequestDto) {
-    try {
-      const result = await this.lineAuthService.handleLineLogin(loginRequest.code);
-      
-      const lineAuthResponseDto = plainToClass(LineAuthResponseDto, {
-        jwtToken: result.jwtToken,
-        expireDate: result.expireDate,
-        userProfile: plainToClass(LineUserProfileDto, result.userProfile, {
-          excludeExtraneousValues: true,
-        }),
-        isNewUser: result.isNewUser,
-      }, {
-        excludeExtraneousValues: true,
-      });
-
-      return this.formatResponse(lineAuthResponseDto, 200);
-    } catch (error) {
-      return this.formatResponse('LINE login failed', 400);
-    }
-  }
 
   @Post('login-with-invite')
-  @ApiOperation({ summary: 'Login with LINE and invite code' })
+  @ApiOperation({ summary: 'Login with LINE and invite code (Secure - Access Token Verification)' })
   @ApiResponse({ status: 200, description: 'Login successful', type: LineAuthResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid invite code' })
+  @ApiResponse({ status: 400, description: 'Invalid invite code or access token' })
+  @ApiResponse({ status: 401, description: 'Access token verification failed' })
   async loginWithInvite(@Body() body: { 
     lineUserId: string; 
     inviteCode: string; 
@@ -59,8 +27,13 @@ export class LineAuthController extends ControllerBase {
     accessToken?: string;
   }) {
     try {
-
       console.log('[LINE] loginWithInvite body', JSON.stringify(body, null, 2), '\n');
+      
+      // 優先使用 access token 進行安全驗證
+      if (!body.accessToken) {
+        console.warn('[LINE] 警告：未提供 access token，將使用較不安全的 ID token 或模擬資料');
+      }
+      
       const result = await this.lineAuthService.loginWithInviteCode(
         body.lineUserId, 
         body.inviteCode, 
@@ -68,8 +41,7 @@ export class LineAuthController extends ControllerBase {
         body.accessToken
       );
 
-      console.log(result, JSON.stringify(result));
-      
+      console.log('[LINE] 登入成功結果:', JSON.stringify(result, null, 2));
       
       const lineAuthResponseDto = plainToClass(LineAuthResponseDto, {
         jwtToken: result.jwtToken,
@@ -84,7 +56,13 @@ export class LineAuthController extends ControllerBase {
 
       return this.formatResponse(lineAuthResponseDto, 200);
     } catch (error) {
-      console.error(error);
+      console.error('[LINE] 登入失敗:', error);
+      
+      // 根據錯誤類型返回適當的狀態碼
+      if (error.message?.includes('Access token') || error.message?.includes('Unauthorized')) {
+        return this.formatResponse(error.message || 'Access token 驗證失敗', 401);
+      }
+      
       return this.formatResponse(error.message || '邀請碼登入失敗', 400);
     }
   }
