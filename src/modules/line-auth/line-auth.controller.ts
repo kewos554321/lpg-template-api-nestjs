@@ -25,8 +25,6 @@ export class LineAuthController extends ControllerBase {
     accessToken: string;
   }) {
     try {
-      this.logger.log(`[LINE] loginWithInvite body ${JSON.stringify(body, null, 2)}`);
-      
       // 必須提供 authentication code
       if (!body.authenticationCode) {
         throw new Error('Authentication code 是必需的');
@@ -42,7 +40,7 @@ export class LineAuthController extends ControllerBase {
         body.accessToken
       );
 
-      this.logger.log(`[LINE] 登入成功結果: ${JSON.stringify(result, null, 2)}`);
+      this.logger.log(`[LINE] 登入成功 - 用戶: ${result.userProfile.displayName}, 新用戶: ${result.isNewUser}`);
       
       const lineAuthResponseDto = plainToClass(LineAuthResponseDto, {
         jwtToken: result.jwtToken,
