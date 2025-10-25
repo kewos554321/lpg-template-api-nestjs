@@ -66,7 +66,7 @@
         
         <div class="info">
             <strong>🔒 安全登入說明：</strong><br>
-            1. 輸入認證碼（至少6位數字）<br>
+            1. 輸入認證碼（至少6位字符）<br>
             2. 點擊「使用認證碼登入」<br>
             3. 系統會使用 access token 向 LINE Platform 驗證您的身份<br>
             4. 服務端直接從 LINE Platform 獲取您的真實資料<br>
@@ -77,15 +77,15 @@
             • 用戶資料直接從 LINE Platform 獲取，確保真實性<br>
             <br>
             <strong>快速測試認證碼：</strong><br>
-            <button onclick="setAuthenticationCode('123456')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">123456</button>
-            <button onclick="setAuthenticationCode('888888')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">888888</button>
-            <button onclick="setAuthenticationCode('999999')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">999999</button>
+            <button onclick="setAuthenticationCode('yAzkzuo9kY')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">yAzkzuo9kY</button>
+            <button onclick="setAuthenticationCode('lh0jNybOT5')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">lh0jNybOT5</button>
+            <button onclick="setAuthenticationCode('JgTmKRt6Ql')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">JgTmKRt6Ql</button>
         </div>
         
         <div id="loginSection">
             <div class="form-group">
                 <label for="authenticationCode">認證碼：</label>
-                <input type="text" id="authenticationCode" placeholder="請輸入認證碼（例如：123456）" maxlength="20" required>
+                <input type="text" id="authenticationCode" placeholder="請輸入認證碼（例如：yAzkzuo9kY）" maxlength="20" required>
             </div>
             
             <button onclick="loginWithInvite()">使用認證碼登入</button>

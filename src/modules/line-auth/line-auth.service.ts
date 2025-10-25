@@ -62,41 +62,22 @@ export class LineAuthService extends ServiceBase {
    */
   public async getUserProfile(accessToken: string): Promise<LineUserProfile> {
     try {
-      const response = await axios.get('https://api.line.me/v2/profile ', {
+      const response = await axios.get('https://api.line.me/v2/profile', {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
 
-      // 透過 OpenID UserInfo 取得更多欄位（若 scope/openid 設定允許）
-      let userInfo: any = {};
-      try {
-        this.logger.log(`start userInfoResp`)
-        const userInfoResp = await axios.get('https://api.line.me/oauth2/v2.1/userinfo', {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          },
-        });
-        this.logger.log(`userInfoResp ${JSON.stringify(userInfoResp, null, 2)}`)
-        userInfo = userInfoResp.data || {};
-      } catch (e) {
-        this.logger.error(`userInfoResp e -> ${e}`)
-        userInfo = {};
-      }
+      this.logger.log(`[LINE] Profile response: ${JSON.stringify(response.data, null, 2)}`);
 
       return {
         userId: response.data.userId,
         displayName: response.data.displayName,
         pictureUrl: response.data.pictureUrl,
         statusMessage: response.data.statusMessage,
-        language: userInfo.lang || userInfo.locale,
-        locale: userInfo.locale,
-        email: userInfo.email,
-        emailVerified: userInfo.email_verified,
-        givenName: userInfo.given_name,
-        familyName: userInfo.family_name,
       };
     } catch (error) {
+      this.logger.error(`[LINE] Failed to get user profile: ${error?.response?.data || error?.message}`);
       throw new UnauthorizedException('Failed to get user profile');
     }
   }
@@ -131,9 +112,6 @@ export class LineAuthService extends ServiceBase {
         displayName: payload.name,
         pictureUrl: payload.picture,
         statusMessage: undefined,
-        language: payload.lang || payload.locale || undefined,
-        email: payload.email,
-        emailVerified: payload.email_verified,
       };
 
       // 若同時取得 accessToken，嘗試補充更多 profile 欄位
@@ -150,12 +128,6 @@ export class LineAuthService extends ServiceBase {
             displayName: enriched.displayName || baseFromIdToken.displayName,
             pictureUrl: enriched.pictureUrl || baseFromIdToken.pictureUrl,
             statusMessage: enriched.statusMessage ?? baseFromIdToken.statusMessage,
-            language: enriched.language || baseFromIdToken.language,
-            locale: enriched.locale || undefined,
-            email: enriched.email || baseFromIdToken.email,
-            emailVerified: enriched.emailVerified ?? baseFromIdToken.emailVerified,
-            givenName: enriched.givenName || undefined,
-            familyName: enriched.familyName || undefined,
           };
         } catch (_) {
           // 無法取得 userinfo 時，仍回傳 idToken 解析結果
