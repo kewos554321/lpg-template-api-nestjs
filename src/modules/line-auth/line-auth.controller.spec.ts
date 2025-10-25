@@ -5,7 +5,7 @@ import { LineAuthService } from './line-auth.service';
 describe('LineAuthController', () => {
   let controller: LineAuthController;
   const service = {
-    loginWithInviteCode: jest.fn(async () => ({
+    loginWithAuthenticationCode: jest.fn(async () => ({
       jwtToken: 'jwt2', expireDate: new Date().toISOString(),
       userProfile: { userId: 'u2', displayName: 'n2' }, isNewUser: false,
     })),
@@ -25,13 +25,13 @@ describe('LineAuthController', () => {
 
   it('loginWithInvite: success', async () => {
     const res = await controller.loginWithInvite({ authenticationCode: 'ABCDEF', accessToken: 'token' } as any);
-    expect(service.loginWithInviteCode).toHaveBeenCalledWith('ABCDEF', 'token');
+    expect(service.loginWithAuthenticationCode).toHaveBeenCalledWith('ABCDEF', 'token');
     expect(res.status).toBe(200);
     expect(res.data.isNewUser).toBe(false);
   });
 
   it('loginWithInvite: failure path', async () => {
-    (service.loginWithInviteCode as jest.Mock).mockRejectedValueOnce(new Error('fail'));
+    (service.loginWithAuthenticationCode as jest.Mock).mockRejectedValueOnce(new Error('fail'));
     const res = await controller.loginWithInvite({ authenticationCode: 'BAD', accessToken: 'token' } as any);
     expect(res.status).toBe(400);
   });

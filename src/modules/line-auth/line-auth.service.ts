@@ -3,14 +3,15 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { tokenHelper, ServiceBase } from '@artifact/lpg-api-service';
 import { LineAuthConfig, LineUserProfile, LineAuthResult } from './interfaces/line-auth.interface';
-import { LineUserProfileDto } from './dto/line-auth.dto';
-import { plainToClass } from 'class-transformer';
+import { LineAuthRepository } from './line-auth.repository';
+import { LogDecorator } from 'src/common/decorators/log.decorator';
 
+@LogDecorator('LineAuthService')
 @Injectable()
 export class LineAuthService extends ServiceBase {
   private readonly lineConfig: LineAuthConfig;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly configService: ConfigService, private readonly lineAuthRepository: LineAuthRepository) {
     super();
     
     this.lineConfig = {
@@ -35,7 +36,7 @@ export class LineAuthService extends ServiceBase {
         }
       });
 
-      console.log('[LINE] Access token verification response:', JSON.stringify(response.data, null, 2));
+      this.logger.log(`[LINE] Access token verification response: ${JSON.stringify(response.data, null, 2)}`);
 
       const { client_id, expires_in } = response.data;
       
@@ -51,7 +52,7 @@ export class LineAuthService extends ServiceBase {
 
       return { client_id, expires_in };
     } catch (error) {
-      console.error('[LINE] Access token verification failed:', error?.response?.data || error?.message);
+      this.logger.error(`[LINE] Access token verification failed: ${error?.response?.data || error?.message}`);
       throw new UnauthorizedException('Failed to verify access token');
     }
   }
@@ -70,16 +71,16 @@ export class LineAuthService extends ServiceBase {
       // 透過 OpenID UserInfo 取得更多欄位（若 scope/openid 設定允許）
       let userInfo: any = {};
       try {
-        console.log(`start userInfoResp`)
+        this.logger.log(`start userInfoResp`)
         const userInfoResp = await axios.get('https://api.line.me/oauth2/v2.1/userinfo', {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
           },
         });
-        console.log(`userInfoResp ${JSON.stringify(userInfoResp, null, 2)}`)
+        this.logger.log(`userInfoResp ${JSON.stringify(userInfoResp, null, 2)}`)
         userInfo = userInfoResp.data || {};
       } catch (e) {
-        console.error('userInfoResp e -> ' , e)
+        this.logger.error(`userInfoResp e -> ${e}`)
         userInfo = {};
       }
 
@@ -108,7 +109,7 @@ export class LineAuthService extends ServiceBase {
       // 簡化版本：直接解析 JWT payload
       const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString());
 
-      console.info('idToken payload', JSON.stringify(payload, null, 2), '\n');
+      this.logger.log(`idToken payload ${JSON.stringify(payload, null, 2)}`);
 
       // 驗證 ID Token（向 LINE 平台驗證），並輸出回應內容以便除錯
       try {
@@ -120,9 +121,9 @@ export class LineAuthService extends ServiceBase {
           form.toString(),
           { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
         );
-        console.log('[LINE] /oauth2/v2.1/verify (id_token) response:', JSON.stringify(verifyResp.data, null, 2));
+        this.logger.log(`[LINE] /oauth2/v2.1/verify (id_token) response: ${JSON.stringify(verifyResp.data, null, 2)}`);
       } catch (e) {
-        console.warn('[LINE] verify id_token failed:', e?.response?.data || e?.message);
+        this.logger.warn(`[LINE] verify id_token failed: ${e?.response?.data || e?.message}`);
       }
       
       const baseFromIdToken: LineUserProfile = {
@@ -136,10 +137,10 @@ export class LineAuthService extends ServiceBase {
       };
 
       // 若同時取得 accessToken，嘗試補充更多 profile 欄位
-      console.log(`userInfoResp1`, accessToken)
+      this.logger.log(`userInfoResp1 ${accessToken}`)
       if (accessToken) {
         try {
-          console.log(`userInfoResp2`)
+          this.logger.log(`userInfoResp2`)
 
           const enriched = await this.getUserProfile(accessToken);
 
@@ -170,30 +171,39 @@ export class LineAuthService extends ServiceBase {
 
 
   /**
-   * 使用邀請碼登入（安全版本 - 使用 access token 驗證）
+   * 使用認證碼登入（安全版本 - 使用 access token 驗證）
    */
-  public async loginWithInviteCode(
-    inviteCode: string, 
+  public async loginWithAuthenticationCode(
+    authenticationCode: string, 
     accessToken: string
   ): Promise<LineAuthResult> {
     try {
-      console.log(`[安全模式] 邀請碼登入 - 邀請碼: ${inviteCode}`);
+      this.logger.log(`[安全模式] 認證碼登入 - 認證碼: ${authenticationCode}`);
+
+      // 第一步：確認 customer in supplier 是否找得到對應的 customer
+      const customerInSuppliers = await this.lineAuthRepository.getCustomerInSuppliersByAuthenticationCode(authenticationCode);
       
-      // 驗證邀請碼格式
-      if (!inviteCode || inviteCode.length < 6) {
-        throw new BadRequestException('無效的邀請碼格式');
+      if (!customerInSuppliers) {
+        throw new BadRequestException('無效的認證碼或客戶不存在');
+      }
+      
+      this.logger.log(`[安全模式] 找到對應的客戶: ${JSON.stringify(customerInSuppliers, null, 2)}`);
+      
+      // 驗證認證碼格式
+      if (!authenticationCode || authenticationCode.length < 6) {
+        throw new BadRequestException('無效的認證碼格式');
       }
 
       // 使用 access token 進行安全驗證
-      console.log('[安全模式] 使用 access token 進行安全驗證');
+      this.logger.log('[安全模式] 使用 access token 進行安全驗證');
       
       // 1. 驗證 access token 是否有效
       const verificationResult = await this.verifyAccessToken(accessToken);
-      console.log('[安全模式] Access token 驗證成功:', verificationResult);
+      this.logger.log(`[安全模式] Access token 驗證成功: ${JSON.stringify(verificationResult)}`);
       
       // 2. 使用 access token 獲取用戶資料
       const userProfile = await this.getUserProfile(accessToken);
-      console.log('[安全模式] 從 LINE Platform 獲取的真實用戶資料:', JSON.stringify(userProfile, null, 2));
+      this.logger.log(`[安全模式] 從 LINE Platform 獲取的真實用戶資料: ${JSON.stringify(userProfile, null, 2)}`);
 
       // 生成 JWT token（使用 LINE 用戶 ID 的 hash 值）
       const customerId = Math.abs(userProfile.userId.split('').reduce((a, b) => {
@@ -204,7 +214,7 @@ export class LineAuthService extends ServiceBase {
       const jwtToken = this.generateJwtToken(customerId);
       const expireDate = this.calculateExpireDate();
 
-      console.log(`[安全模式] 登入成功 - 客戶ID: ${customerId}, JWT: ${jwtToken.substring(0, 20)}...`);
+      this.logger.log(`[安全模式] 登入成功 - 客戶ID: ${customerId}, JWT: ${jwtToken.substring(0, 20)}...`);
 
       return {
         jwtToken,
@@ -213,8 +223,8 @@ export class LineAuthService extends ServiceBase {
         isNewUser: false, // 標記為現有用戶
       };
     } catch (error) {
-      console.error('[安全模式] 邀請碼登入失敗:', error);
-      throw new BadRequestException(error.message || '邀請碼登入失敗');
+      this.logger.error(`[安全模式] 認證碼登入失敗: ${error.message || error}`);
+      throw new BadRequestException(error.message || '認證碼登入失敗');
     }
   }
 
@@ -265,7 +275,7 @@ export class LineAuthService extends ServiceBase {
     // 生成 QR Code URL（使用 Google Charts API）
     const qrCodeUrl = `https://chart.googleapis.com/chart?chs=300x300&chld=M|0&cht=qr&chl=${encodeURIComponent(liffUrl)}`;
     
-    console.log(`[LIFF URL 生成] 邀請碼: ${inviteCode}, 來源: ${source || 'N/A'}, URL: ${liffUrl}`);
+    this.logger.log(`[LIFF URL 生成] 邀請碼: ${inviteCode}, 來源: ${source || 'N/A'}, URL: ${liffUrl}`);
     
     return {
       liffUrl,

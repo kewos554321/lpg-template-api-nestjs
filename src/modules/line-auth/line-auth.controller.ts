@@ -25,7 +25,7 @@ export class LineAuthController extends ControllerBase {
     accessToken: string;
   }) {
     try {
-      console.log('[LINE] loginWithInvite body', JSON.stringify(body, null, 2), '\n');
+      this.logger.log(`[LINE] loginWithInvite body ${JSON.stringify(body, null, 2)}`);
       
       // 必須提供 authentication code
       if (!body.authenticationCode) {
@@ -37,12 +37,12 @@ export class LineAuthController extends ControllerBase {
         throw new Error('Access token 是必需的');
       }
       
-      const result = await this.lineAuthService.loginWithInviteCode(
+      const result = await this.lineAuthService.loginWithAuthenticationCode(
         body.authenticationCode, 
         body.accessToken
       );
 
-      console.log('[LINE] 登入成功結果:', JSON.stringify(result, null, 2));
+      this.logger.log(`[LINE] 登入成功結果: ${JSON.stringify(result, null, 2)}`);
       
       const lineAuthResponseDto = plainToClass(LineAuthResponseDto, {
         jwtToken: result.jwtToken,
@@ -57,7 +57,7 @@ export class LineAuthController extends ControllerBase {
 
       return this.formatResponse(lineAuthResponseDto, 200);
     } catch (error) {
-      console.error('[LINE] 登入失敗:', error);
+      this.logger.error(`[LINE] 登入失敗: ${error.message || error}`);
       
       // 根據錯誤類型返回適當的狀態碼
       if (error.message?.includes('Access token') || error.message?.includes('Unauthorized')) {
@@ -78,7 +78,7 @@ export class LineAuthController extends ControllerBase {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const redirectUrl = `${frontendUrl}/liff?code=${code}&state=${state || ''}`;
 
-    console.log('[LINE] handleCallback redirectUrl', redirectUrl, '\n');
+    this.logger.log(`[LINE] handleCallback redirectUrl ${redirectUrl}`);
     
     return { url: redirectUrl };
   }
