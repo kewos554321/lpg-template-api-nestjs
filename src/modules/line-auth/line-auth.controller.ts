@@ -21,23 +21,24 @@ export class LineAuthController extends ControllerBase {
   @ApiResponse({ status: 400, description: 'Invalid invite code or access token' })
   @ApiResponse({ status: 401, description: 'Access token verification failed' })
   async loginWithInvite(@Body() body: { 
-    lineUserId: string; 
-    inviteCode: string; 
-    idToken?: string; 
-    accessToken?: string;
+    authenticationCode: string; 
+    accessToken: string;
   }) {
     try {
       console.log('[LINE] loginWithInvite body', JSON.stringify(body, null, 2), '\n');
       
-      // 優先使用 access token 進行安全驗證
+      // 必須提供 authentication code
+      if (!body.authenticationCode) {
+        throw new Error('Authentication code 是必需的');
+      }
+      
+      // 必須提供 access token
       if (!body.accessToken) {
-        console.warn('[LINE] 警告：未提供 access token，將使用較不安全的 ID token 或模擬資料');
+        throw new Error('Access token 是必需的');
       }
       
       const result = await this.lineAuthService.loginWithInviteCode(
-        body.lineUserId, 
-        body.inviteCode, 
-        body.idToken,
+        body.authenticationCode, 
         body.accessToken
       );
 
@@ -63,7 +64,7 @@ export class LineAuthController extends ControllerBase {
         return this.formatResponse(error.message || 'Access token 驗證失敗', 401);
       }
       
-      return this.formatResponse(error.message || '邀請碼登入失敗', 400);
+      return this.formatResponse(error.message || '認證碼登入失敗', 400);
     }
   }
 

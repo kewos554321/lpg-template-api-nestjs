@@ -173,65 +173,27 @@ export class LineAuthService extends ServiceBase {
    * 使用邀請碼登入（安全版本 - 使用 access token 驗證）
    */
   public async loginWithInviteCode(
-    lineUserId: string, 
     inviteCode: string, 
-    idToken?: string,
-    accessToken?: string
+    accessToken: string
   ): Promise<LineAuthResult> {
     try {
-      console.log(`[安全模式] 邀請碼登入 - LINE用戶: ${lineUserId}, 邀請碼: ${inviteCode}`);
+      console.log(`[安全模式] 邀請碼登入 - 邀請碼: ${inviteCode}`);
       
       // 驗證邀請碼格式
       if (!inviteCode || inviteCode.length < 6) {
         throw new BadRequestException('無效的邀請碼格式');
       }
 
-      let userProfile: LineUserProfile;
-
-      // 優先使用 access token 進行安全驗證
-      if (accessToken) {
-        try {
-          console.log('[安全模式] 使用 access token 進行安全驗證');
-          
-          // 1. 驗證 access token 是否有效
-          const verificationResult = await this.verifyAccessToken(accessToken);
-          console.log('[安全模式] Access token 驗證成功:', verificationResult);
-          
-          // 2. 使用 access token 獲取用戶資料
-          userProfile = await this.getUserProfile(accessToken);
-          console.log('[安全模式] 從 LINE Platform 獲取的真實用戶資料:', JSON.stringify(userProfile, null, 2));
-          
-        } catch (error) {
-          console.error('[安全模式] Access token 驗證失敗:', error);
-          throw new UnauthorizedException('Access token 驗證失敗，請重新登入');
-        }
-      } 
-      // 備用方案：使用 ID token（較不安全）
-      else if (idToken) {
-        try {
-          console.log('[備用模式] 使用 ID token 解析用戶資料');
-          userProfile = await this.verifyIdToken(idToken);
-          console.log('[備用模式] 從 ID token 解析的用戶資料:', JSON.stringify(userProfile, null, 2));
-        } catch (error) {
-          console.log('[備用模式] ID Token 解析失敗，使用模擬資料');
-          userProfile = {
-            userId: lineUserId,
-            displayName: `測試用戶_${inviteCode}`,
-            pictureUrl: '',
-            statusMessage: ''
-          };
-        }
-      } 
-      // 最後備用方案：模擬用戶資料（僅用於測試）
-      else {
-        console.log('[測試模式] 無 access token 和 ID token，使用模擬資料');
-        userProfile = {
-          userId: lineUserId,
-          displayName: `測試用戶_${inviteCode}`,
-          pictureUrl: '',
-          statusMessage: ''
-        };
-      }
+      // 使用 access token 進行安全驗證
+      console.log('[安全模式] 使用 access token 進行安全驗證');
+      
+      // 1. 驗證 access token 是否有效
+      const verificationResult = await this.verifyAccessToken(accessToken);
+      console.log('[安全模式] Access token 驗證成功:', verificationResult);
+      
+      // 2. 使用 access token 獲取用戶資料
+      const userProfile = await this.getUserProfile(accessToken);
+      console.log('[安全模式] 從 LINE Platform 獲取的真實用戶資料:', JSON.stringify(userProfile, null, 2));
 
       // 生成 JWT token（使用 LINE 用戶 ID 的 hash 值）
       const customerId = Math.abs(userProfile.userId.split('').reduce((a, b) => {

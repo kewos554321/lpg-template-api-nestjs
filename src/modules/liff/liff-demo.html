@@ -65,24 +65,30 @@
         <h2>LINE 登入測試</h2>
         
         <div class="info">
-            <strong>測試說明：</strong><br>
-            1. 輸入任意邀請碼（至少6位數字）<br>
-            2. 點擊「使用邀請碼登入」<br>
-            3. 系統會使用真實的 LINE 用戶資料<br>
+            <strong>🔒 安全登入說明：</strong><br>
+            1. 輸入認證碼（至少6位數字）<br>
+            2. 點擊「使用認證碼登入」<br>
+            3. 系統會使用 access token 向 LINE Platform 驗證您的身份<br>
+            4. 服務端直接從 LINE Platform 獲取您的真實資料<br>
             <br>
-            <strong>快速測試邀請碼：</strong><br>
-            <button onclick="setInviteCode('123456')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">123456</button>
-            <button onclick="setInviteCode('888888')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">888888</button>
-            <button onclick="setInviteCode('999999')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">999999</button>
+            <strong>🛡️ 安全特性：</strong><br>
+            • 客戶端只發送 access token，不發送用戶資料<br>
+            • 服務端向 LINE Platform 驗證 token 有效性<br>
+            • 用戶資料直接從 LINE Platform 獲取，確保真實性<br>
+            <br>
+            <strong>快速測試認證碼：</strong><br>
+            <button onclick="setAuthenticationCode('123456')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">123456</button>
+            <button onclick="setAuthenticationCode('888888')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">888888</button>
+            <button onclick="setAuthenticationCode('999999')" style="background-color: #f0f0f0; color: #333; padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin: 2px;">999999</button>
         </div>
         
         <div id="loginSection">
             <div class="form-group">
-                <label for="inviteCode">邀請碼：</label>
-                <input type="text" id="inviteCode" placeholder="請輸入邀請碼（例如：123456）" maxlength="20">
+                <label for="authenticationCode">認證碼：</label>
+                <input type="text" id="authenticationCode" placeholder="請輸入認證碼（例如：123456）" maxlength="20" required>
             </div>
             
-            <button onclick="loginWithInvite()">使用邀請碼登入</button>
+            <button onclick="loginWithInvite()">使用認證碼登入</button>
             <button onclick="logout()" style="background-color: #ff4444;">登出</button>
         </div>
         
@@ -126,10 +132,10 @@
     <script>
         const liffId = '2008316850-kN5g1q7N';
         
-        // 快速設置邀請碼的函數
-        function setInviteCode(code) {
-            document.getElementById('inviteCode').value = code;
-            console.log(`設置邀請碼: ${code}`);
+        // 快速設置認證碼的函數
+        function setAuthenticationCode(code) {
+            document.getElementById('authenticationCode').value = code;
+            console.log(`設置認證碼: ${code}`);
         }
         
         // 初始化 LIFF
@@ -156,11 +162,8 @@
             try {
                 // 透過 LIFF 取得使用者資料
                 const profile = await liff.getProfile();
-                const decoded = liff.getDecodedIDToken();
 
                 console.log('用戶資訊 (liff.getProfile):', profile);
-                console.log('ID Token 解碼 (liff.getDecodedIDToken):', decoded);
-                console.log('liff.getDecodedIDToken() 詳細內容:', JSON.stringify(decoded, null, 2));
                 document.getElementById('userId').textContent = profile.userId;
                 document.getElementById('userName').textContent = profile.displayName;
             } catch (error) {
@@ -188,27 +191,29 @@
             liff.logout();
         }
 
-        // 使用邀請碼登入
+        // 使用認證碼登入（安全版本 - 只發送 access token）
         async function loginWithInvite() {
-            const inviteCode = document.getElementById('inviteCode').value.trim();
+            const authenticationCode = document.getElementById('authenticationCode').value.trim();
             
-            if (!inviteCode || inviteCode.length < 6) {
-                showMessage('請輸入至少6位數字的邀請碼', 'error');
+            if (!authenticationCode || authenticationCode.length < 6) {
+                showMessage('請輸入至少6位數字的認證碼', 'error');
                 return;
             }
 
             try {
-                showMessage('正在登入...', 'success');
+                showMessage('正在安全登入...', 'success');
                 
-                // 取得 LINE 用戶資訊（profile 與 decoded ID token 兩種來源）
-                const profile = await liff.getProfile();
-                const decoded = liff.getDecodedIDToken();
-                const idToken = liff.getIDToken();
+                // 只取得 access token，不發送用戶資料（更安全）
                 const accessToken = liff.getAccessToken();
 
-                console.log('用戶資訊 (liff.getProfile):', profile);
-                console.log('ID Token 解碼 (liff.getDecodedIDToken):', decoded);
-                console.log('liff.getDecodedIDToken() 詳細內容:', JSON.stringify(decoded, null, 2));
+                console.log('[安全模式] 只發送 access token 到服務端進行驗證');
+                console.log('Access Token 存在:', !!accessToken);
+                console.log('Access Token:', accessToken);
+                
+                if (!accessToken) {
+                    showMessage('無法取得 LINE 授權，請重新登入', 'error');
+                    return;
+                }
                 
                 const response = await fetch('/app-api/line-auth/login-with-invite', {
                     method: 'POST',
@@ -216,10 +221,8 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        lineUserId: profile.userId,
-                        inviteCode: inviteCode,
-                        idToken: idToken,
-                        accessToken: accessToken
+                        authenticationCode: authenticationCode,
+                        accessToken: accessToken // 主要驗證方式
                     })
                 });
                 
@@ -227,7 +230,7 @@
                 console.log('API 回應:', result);
                 
                 if (result.status === 200 && result.data) {
-                    showMessage('登入成功！', 'success');
+                    showMessage('安全登入成功！', 'success');
                     showSuccessPage(result.data);
                 } else {
                     console.error('登入失敗:', result);
@@ -320,14 +323,14 @@
             // 顯示登入區域
             document.getElementById('loginSection').style.display = 'block';
             
-            // 清空邀請碼輸入框
-            document.getElementById('inviteCode').value = '';
+            // 清空認證碼輸入框
+            document.getElementById('authenticationCode').value = '';
             
             // 清空訊息
             document.getElementById('message').textContent = '';
             document.getElementById('message').className = '';
             
-            console.log('已重新開始邀請碼登入流程');
+            console.log('已重新開始認證碼登入流程');
         }
 
         // 顯示訊息

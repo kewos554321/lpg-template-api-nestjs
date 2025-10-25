@@ -24,16 +24,28 @@ describe('LineAuthController', () => {
 
 
   it('loginWithInvite: success', async () => {
-    const res = await controller.loginWithInvite({ lineUserId: 'u', inviteCode: 'ABCDEF', accessToken: 'token' } as any);
-    expect(service.loginWithInviteCode).toHaveBeenCalledWith('u', 'ABCDEF', undefined, 'token');
+    const res = await controller.loginWithInvite({ authenticationCode: 'ABCDEF', accessToken: 'token' } as any);
+    expect(service.loginWithInviteCode).toHaveBeenCalledWith('ABCDEF', 'token');
     expect(res.status).toBe(200);
     expect(res.data.isNewUser).toBe(false);
   });
 
   it('loginWithInvite: failure path', async () => {
     (service.loginWithInviteCode as jest.Mock).mockRejectedValueOnce(new Error('fail'));
-    const res = await controller.loginWithInvite({ lineUserId: 'u', inviteCode: 'BAD', accessToken: 'token' } as any);
+    const res = await controller.loginWithInvite({ authenticationCode: 'BAD', accessToken: 'token' } as any);
     expect(res.status).toBe(400);
+  });
+
+  it('loginWithInvite: missing access token', async () => {
+    const res = await controller.loginWithInvite({ authenticationCode: 'ABCDEF' } as any);
+    expect(res.status).toBe(400);
+    expect(res.data).toBe('Access token 是必需的');
+  });
+
+  it('loginWithInvite: missing authentication code', async () => {
+    const res = await controller.loginWithInvite({ accessToken: 'token' } as any);
+    expect(res.status).toBe(400);
+    expect(res.data).toBe('Authentication code 是必需的');
   });
 
   it('handleCallback redirect', async () => {
