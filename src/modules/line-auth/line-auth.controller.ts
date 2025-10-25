@@ -15,12 +15,12 @@ export class LineAuthController extends ControllerBase {
   }
 
 
-  @Post('login-with-invite')
-  @ApiOperation({ summary: 'Login with LINE and invite code (Secure - Access Token Verification)' })
+  @Post('withAuthentication')
+  @ApiOperation({ summary: 'Login with LINE and authentication code (Secure - Access Token Verification)' })
   @ApiResponse({ status: 200, description: 'Login successful', type: LineAuthResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid invite code or access token' })
+  @ApiResponse({ status: 400, description: 'Invalid authentication code or access token' })
   @ApiResponse({ status: 401, description: 'Access token verification failed' })
-  async loginWithInvite(@Body() body: { 
+  async withAuthentication(@Body() body: { 
     authenticationCode: string; 
     accessToken: string;
   }) {

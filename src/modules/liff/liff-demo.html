@@ -88,7 +88,7 @@
                 <input type="text" id="authenticationCode" placeholder="請輸入認證碼（例如：yAzkzuo9kY）" maxlength="20" required>
             </div>
             
-            <button onclick="loginWithInvite()">使用認證碼登入</button>
+            <button onclick="withAuthentication()">使用認證碼登入</button>
             <button onclick="logout()" style="background-color: #ff4444;">登出</button>
         </div>
         
@@ -192,7 +192,7 @@
         }
 
         // 使用認證碼登入（安全版本 - 只發送 access token）
-        async function loginWithInvite() {
+        async function withAuthentication() {
             const authenticationCode = document.getElementById('authenticationCode').value.trim();
             
             if (!authenticationCode || authenticationCode.length < 6) {
@@ -215,7 +215,7 @@
                     return;
                 }
                 
-                const response = await fetch('/app-api/line-auth/login-with-invite', {
+                const response = await fetch('/app-api/line-auth/withAuthentication', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
